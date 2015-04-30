@@ -5,16 +5,9 @@
    Simple Network Proxy
    University of Arizona
    Due Friday May 8, 2014
-   Uses code provided as reference on https://d2l.arizona.edu/content/enforced/408520-765-2151-1CSC425001/tcpclient.c
+   Uses code and ideas from linux man pages for select(2) as well as select_tut(2)
    */
 
-//take input cproxy w.x.y.z
-//process IP
-//telnet localhost 5200
-//TCP connection to Server port 6200 at w.x.y.z
-//calls select() on both sockets
-//if data then read from that socket and write to the other socket
-//if heartbeat update timer
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -26,8 +19,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include "proxy.h"
 #define BUF_SIZE 1024
 
+//remove some code snippets to clean up code
 #define SHUT_FD1 do {                                \
         if (fd1 >= 0) {                 \
                 shutdown(fd1, SHUT_RDWR);   \
@@ -50,6 +45,7 @@ static int forward_port;
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
+//function to establish a socket on localhost and start listening to it
 static int listen_socket(int listen_port)
 {
         char local_ip[] = "127.0.0.1";
@@ -83,7 +79,7 @@ static int listen_socket(int listen_port)
         return s;
 }
 
-
+//function to connect to the server
 static int connect_socket(int connect_port, char *address)
 {
         struct sockaddr_in a;
@@ -119,127 +115,176 @@ int main(int argc, char *argv[])
 {
         int h;
         int fd1 = -1, fd2 = -1;
-        char buf1[BUF_SIZE], buf2[BUF_SIZE];
         int buf1_avail, buf1_written;
         int buf2_avail, buf2_written;
         int forward_port = 6200;
         int listen_port = 5200;
 
+        //test for to many or to few args
         if (argc != 2) {
                 fprintf(stderr, "Usage\n\tcproxy <forward-to-ip-address>\n");
                 exit(EXIT_FAILURE);
         }
 
-        //TODO
+        //set signal so we can use write instead of send just a semantic
         signal(SIGPIPE, SIG_IGN);
 
 
+        //open the port 5200 on local host
+        //set h as the socket
         h = listen_socket(listen_port);
         if (h == -1)
                 exit(EXIT_FAILURE);
 
+        //main loop that contains the select call
+        //essentially a timer loop that recvs stores and sends packets
+        //also this loop monitors the connection to server
         for (;;) {
+                //nfds is one of the args for the select function
+                //r is used to catch sockets errors from read write
                 int r, nfds = 0;
+                //sets of file descriptors used by select to monitor when a socket is ready
                 fd_set rd, wr, er;
 
+                //zero out the sets that select is monitoring
                 FD_ZERO(&rd);
                 FD_ZERO(&wr);
                 FD_ZERO(&er);
+                //set the socket that listens on 5200 local host into the read set
                 FD_SET(h, &rd);
+                //taking care of nfds which should be one more that the largest integer in select
                 nfds = max(nfds, h);
-
-                //if file descriptor 1 is ready and queued packets
-                if (fd1 > 0 && buf1_avail < BUF_SIZE)
-                {
-                        FD_SET(fd1, &rd);
-                        nfds = max(nfds, fd1);
-                }
-                //if file descriptor 2 is ready and queued packets
-                if (fd2 > 0 && buf2_avail < BUF_SIZE)
-                {
-                        FD_SET(fd2, &rd);
-                        nfds = max(nfds, fd2);
-                }
-                //if file descriptor 1 is ready and available > written
-                if (fd1 > 0 && buf2_avail - buf2_written > 0)
-                {
-                        FD_SET(fd1, &wr);
-                        nfds = max(nfds, fd1);
-                }
-                if (fd2 > 0 && buf1_avail - buf1_written > 0)
-                {
-                        FD_SET(fd2, &wr);
-                        nfds = max(nfds, fd2);
-                }
+                //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, NULL);
 
+                //if it caught a signal ie select returned without a fd or timeout
                 if (r == -1 && errno == EINTR)
                         continue;
 
+                //select errored out
                 if (r == -1) {
                         perror("select()");
                         exit(EXIT_FAILURE);
                 }
 
+                //if the localhost port is ready to read
                 if(FD_ISSET(h, &rd))
                 {
+                        //set up and accept data from that socket
                         int length;
-                        struct sockaddr_in server_address;
-                        memset(&server_address, 0, length = sizeof(server_address));
-                        r = accept(h,(struct sockaddr*) &server_address, &length );
+                        struct sockaddr_in client_address;
+                        memset(&client_address, 0, length = sizeof(client_address));
+                        r = accept(h,(struct sockaddr*) &client_address, &length );
                         if(r==-1)
                         {
                                 perror("accept()");
                         }
-                        else
+                        else //accept had no problems
                         {
-
+                                //set file descriptor 1 to the value returned by accept
                                 fd1 = r;
+                                //set fd2 to where we are trying to send to
                                 fd2 = connect_socket(forward_port,argv[1]);
+                                //if fd2 is a bad connection then close it using the shut macro
                                 if(fd2==-1)
                                 {
                                         SHUT_FD1;
                                 }
                                 else
-                                        printf("connect from %s\n", inet_ntoa(server_address.sin_addr));
+                                        printf("connect from %s\n", inet_ntoa(client_address.sin_addr));
                         }
                 }
+                //if the accept returned something
                 if(fd1>0)
                 {
+                        //if the fd1 socket is ready
+                        //create a new packet to store in the queue
                         if(FD_ISSET(fd1, &rd))
                         {
-                                r = read(fd1, buf1, BUF_SIZE);
+                                data_packet* data;
+                                data = malloc(sizeof(data));
+                                r = read(fd1, data->buf, BUF_SIZE);
                                 if (r < 1)
+                                {
                                         SHUT_FD1;
+                                }
+                                else
+                                {
+                                        data_packet* temp;
+                                        temp = to_s_packets;
+                                        if(temp==NULL)
+                                        {
+                                                to_s_packets = temp;
+                                                temp->next = NULL;
+                                        }
+
+
+                                }
                         }
                 }
 
+                //if the outgoing port is functioning
                 if(fd2>0)
                 {
+                        //if the server side port has something to read
+                        //read the packet and save it to the queue
                         if(FD_ISSET(fd2, &rd))
                         {
-                                r = read(fd2, buf2, BUF_SIZE);
+                                data_packet* data;
+                                data = malloc(sizeof(data));
+                                r = read(fd2, data->buf, BUF_SIZE);
                                 if (r < 1)
+                                {
                                         SHUT_FD2;
+                                }
+                                else
+                                {
+                                        data_packet* temp;
+                                        temp = to_c_packets;
+                                        if(temp==NULL)
+                                        {
+                                                to_c_packets = temp;
+                                                temp->next = NULL;
+                                        }
+
+
+                                }
                         }
                 }
 
+                //if client side is working
                 if (fd1 > 0)
                 {
+                        //if client side is ready to write
+                        //check if the queue is empty
+                        //if not then send a packet
                         if (FD_ISSET(fd1, &wr)) {
-                                r = write(fd1, buf2 + buf2_written,
-                                                buf2_avail - buf2_written);
-                                if (r < 1)
-                                        SHUT_FD1;
+                                if(to_c_packets!=NULL)
+                                {
+                                        data_packet* data = to_c_packets;
+                                        to_c_packets = to_c_packets->next;
+                                        r = write(fd1, data->buf, BUF_SIZE);
+                                        if (r < 1)
+                                                SHUT_FD1;
+                                        free(data);
+                                }
                         }
                 }
+                //if server side is functioning
                 if (fd2 > 0)
                 {
+                        //if the server side is ready to write
+                        //send any pending packets
                         if (FD_ISSET(fd2, &wr)) {
-                                r = write(fd2, buf1 + buf1_written,
-                                                buf1_avail - buf1_written);
-                                if (r < 1)
-                                        SHUT_FD2;
+                                if(to_c_packets!=NULL)
+                                {
+                                        data_packet* data = to_s_packets;
+                                        to_s_packets = to_s_packets->next;
+                                        r = write(fd2, data->buf, BUF_SIZE);
+                                        if (r < 1)
+                                                SHUT_FD2;
+                                        free(data);
+                                }
                         }
                 }
 
