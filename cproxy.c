@@ -85,6 +85,7 @@ static int connect_socket(int connect_port, char *address)
         struct sockaddr_in a;
         int s;
 
+        printf("connection to socket port = %d", connect_port);
         s = socket(AF_INET, SOCK_STREAM, 0);
         if (s == -1) {
                 perror("socket");
@@ -166,7 +167,6 @@ int main(int argc, char *argv[])
                         perror("select()");
                         exit(EXIT_FAILURE);
                 }
-
                 //if the localhost port is ready to read
                 if(FD_ISSET(h, &rd))
                 {
