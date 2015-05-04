@@ -80,7 +80,7 @@ static int listen_socket(int listen_port)
                 close(s);
                 return -1;
         }
-        //printf("accepting connections on port %d\n", listen_port);
+        printf("accepting connections on port %d\n", listen_port);
         listen(s, 10);
         return s;
 }
@@ -91,7 +91,7 @@ static int connect_socket(int connect_port, char *address)
         struct sockaddr_in a;
         int s;
 
-        //printf("connection to socket port = %d\n", connect_port);
+        printf("connection to socket port = %d\n", connect_port);
         s = socket(AF_INET, SOCK_STREAM, 0);
         if (s == -1) {
                 perror("socket");
@@ -125,14 +125,15 @@ int main(int argc, char *argv[])
         int buf1_avail, buf1_written;
         int buf2_avail, buf2_written;
         int forward_port = 23;
-        int listen_port = 5200;
+        int listen_port = 6200;
         struct timeval timeout;
         s_pending=0;
         c_pending=0;
+        char local_ip[] = "127.0.0.1";
 
         //test for to many or to few args
-        if (argc != 2) {
-                fprintf(stderr, "Usage\n\tcproxy <forward-to-ip-address>\n");
+        if (argc != 1) {
+                fprintf(stderr, "Usage\n\tsproxy\n");
                 exit(EXIT_FAILURE);
         }
 
@@ -152,7 +153,7 @@ int main(int argc, char *argv[])
         for (;;) {
                 timeout.tv_sec = 2;
                 timeout.tv_usec = 0;
-                //printf("FOR LOOP\n\n");
+                printf("FOR LOOP\n\n");
                 //nfds is one of the args for the select function
                 //r is used to catch sockets errors from read write
                 int r, nfds = 0;
@@ -180,7 +181,7 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
-                //printf("Select returned %d\n\n", r);
+                printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
                 if (r == -1 && errno == EINTR)
@@ -210,7 +211,7 @@ int main(int argc, char *argv[])
                                 //set file descriptor 1 to the value returned by accept
                                 fd1 = r;
                                 //set fd2 to where we are trying to send to
-                                fd2 = connect_socket(forward_port,argv[1]);
+                                fd2 = connect_socket(forward_port,local_ip);
                                 //if fd2 is a bad connection then close it using the shut macro
                                 if(fd2==-1)
                                 {

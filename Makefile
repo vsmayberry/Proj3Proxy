@@ -7,4 +7,4 @@ sproxy: sproxy.c
 	gcc -Wall -g -o sproxy sproxy.c
 
 clean:
-	rm -f *.o core cproxy sproxy
+	rm -f *.o *.swp core cproxy sproxy

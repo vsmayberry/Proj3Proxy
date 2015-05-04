@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
         int fd1 = -1, fd2 = -1;
         int buf1_avail, buf1_written;
         int buf2_avail, buf2_written;
-        int forward_port = 23;
+        int forward_port = 6200;
         int listen_port = 5200;
         struct timeval timeout;
         s_pending=0;
