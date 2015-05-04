@@ -74,7 +74,7 @@ static int listen_socket(int listen_port)
                 close(s);
                 return -1;
         }
-        printf("accepting connections on port %d\n", listen_port);
+        //printf("accepting connections on port %d\n", listen_port);
         listen(s, 10);
         return s;
 }
@@ -85,7 +85,7 @@ static int connect_socket(int connect_port, char *address)
         struct sockaddr_in a;
         int s;
 
-        printf("connection to socket port = %d", connect_port);
+        //printf("connection to socket port = %d\n", connect_port);
         s = socket(AF_INET, SOCK_STREAM, 0);
         if (s == -1) {
                 perror("socket");
@@ -118,8 +118,11 @@ int main(int argc, char *argv[])
         int fd1 = -1, fd2 = -1;
         int buf1_avail, buf1_written;
         int buf2_avail, buf2_written;
-        int forward_port = 6200;
+        int forward_port = 23;
         int listen_port = 5200;
+        struct timeval timeout;
+        s_pending=0;
+        c_pending=0;
 
         //test for to many or to few args
         if (argc != 2) {
@@ -141,6 +144,9 @@ int main(int argc, char *argv[])
         //essentially a timer loop that recvs stores and sends packets
         //also this loop monitors the connection to server
         for (;;) {
+                timeout.tv_sec = 2;
+                timeout.tv_usec = 0;
+                //printf("FOR LOOP\n\n");
                 //nfds is one of the args for the select function
                 //r is used to catch sockets errors from read write
                 int r, nfds = 0;
@@ -155,8 +161,20 @@ int main(int argc, char *argv[])
                 FD_SET(h, &rd);
                 //taking care of nfds which should be one more that the largest integer in select
                 nfds = max(nfds, h);
+
+                //TODO
+                FD_SET(fd1, &rd);
+                nfds = max(nfds, fd1);
+                FD_SET(fd2, &rd);
+                nfds = max(nfds, fd2);
+                FD_SET(fd1, &wr);
+                nfds = max(nfds, fd1);
+                FD_SET(fd2, &wr);
+                nfds = max(nfds, fd2);
+
                 //call select which can monitor time and whic sockets are ready
-                r = select(nfds + 1, &rd, &wr, &er, NULL);
+                r = select(nfds + 1, &rd, &wr, &er, &timeout);
+                //printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
                 if (r == -1 && errno == EINTR)
@@ -181,6 +199,8 @@ int main(int argc, char *argv[])
                         }
                         else //accept had no problems
                         {
+                                SHUT_FD1;
+                                SHUT_FD2;
                                 //set file descriptor 1 to the value returned by accept
                                 fd1 = r;
                                 //set fd2 to where we are trying to send to
@@ -191,7 +211,7 @@ int main(int argc, char *argv[])
                                         SHUT_FD1;
                                 }
                                 else
-                                        printf("connect from %s\n", inet_ntoa(client_address.sin_addr));
+                                        printf("Connection from %s to %s\n", inet_ntoa(client_address.sin_addr), argv[1]);
                         }
                 }
                 //if the accept returned something
@@ -203,7 +223,10 @@ int main(int argc, char *argv[])
                         {
                                 data_packet* data;
                                 data = malloc(sizeof(data));
+                                data->type = DATA_P_TYPE;
+                                memset(&data->buf, 0, sizeof(BUF_SIZE));
                                 r = read(fd1, data->buf, BUF_SIZE);
+                                data->payload = r;
                                 if (r < 1)
                                 {
                                         SHUT_FD1;
@@ -214,11 +237,12 @@ int main(int argc, char *argv[])
                                         temp = to_s_packets;
                                         if(temp==NULL)
                                         {
-                                                to_s_packets = temp;
-                                                temp->next = NULL;
+                                                to_s_packets = data;
+                                                data->next = NULL;
                                         }
 
 
+                                        s_pending+=1;
                                 }
                         }
                 }
@@ -232,7 +256,10 @@ int main(int argc, char *argv[])
                         {
                                 data_packet* data;
                                 data = malloc(sizeof(data));
+                                data->type = DATA_P_TYPE;
+                                memset(&data->buf, 0, sizeof(BUF_SIZE));
                                 r = read(fd2, data->buf, BUF_SIZE);
+                                data->payload = r;
                                 if (r < 1)
                                 {
                                         SHUT_FD2;
@@ -243,11 +270,13 @@ int main(int argc, char *argv[])
                                         temp = to_c_packets;
                                         if(temp==NULL)
                                         {
-                                                to_c_packets = temp;
-                                                temp->next = NULL;
+                                                to_c_packets = data;
+                                                data->next=NULL;
                                         }
 
 
+
+                                        c_pending+=1;
                                 }
                         }
                 }
@@ -263,11 +292,12 @@ int main(int argc, char *argv[])
                                 {
                                         data_packet* data = to_c_packets;
                                         to_c_packets = to_c_packets->next;
-                                        r = write(fd1, data->buf, BUF_SIZE);
+                                        r = write(fd1, data->buf, data->payload);
                                         if (r < 1)
                                                 SHUT_FD1;
-                                        free(data);
+                                        //free(data);
                                 }
+                                c_pending-=1;
                         }
                 }
                 //if server side is functioning
@@ -276,15 +306,16 @@ int main(int argc, char *argv[])
                         //if the server side is ready to write
                         //send any pending packets
                         if (FD_ISSET(fd2, &wr)) {
-                                if(to_c_packets!=NULL)
+                                if(to_s_packets!=NULL)
                                 {
                                         data_packet* data = to_s_packets;
                                         to_s_packets = to_s_packets->next;
-                                        r = write(fd2, data->buf, BUF_SIZE);
+                                        r = write(fd2, data->buf, data->payload);
                                         if (r < 1)
                                                 SHUT_FD2;
-                                        free(data);
+                                        //free(data);
                                 }
+                                s_pending-=1;
                         }
                 }
 

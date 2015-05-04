@@ -1,5 +1,8 @@
 
 #define BUF_SIZE 1024
+#define CONNECT_P_TYPE 0
+#define DATA_P_TYPE    1
+#define HEART_P_TYPE   2
 
 //new connection initiation
 typedef struct connect_packet
@@ -30,3 +33,5 @@ typedef struct heartbeat_packet
 
 data_packet* to_s_packets = NULL;
 data_packet* to_c_packets = NULL;
+int s_pending;
+int c_pending;
