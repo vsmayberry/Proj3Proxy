@@ -125,8 +125,6 @@ int main(int argc, char *argv[])
 {
         int h, connected;
         int fd1 = -1, fd2 = -1;
-        int buf1_avail, buf1_written;
-        int buf2_avail, buf2_written;
         int forward_port = 23;
         int listen_port = 6200;
         struct timeval timeout;
@@ -173,7 +171,6 @@ int main(int argc, char *argv[])
                 //taking care of nfds which should be one more that the largest integer in select
                 nfds = max(nfds, h);
 
-                //TODO
                 FD_SET(fd1, &rd);
                 nfds = max(nfds, fd1);
                 FD_SET(fd2, &rd);
