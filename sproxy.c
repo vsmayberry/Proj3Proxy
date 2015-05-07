@@ -235,8 +235,10 @@ int main(int argc, char *argv[])
                                 memset(&data->buf, 0, sizeof(BUF_SIZE));
                                 r = read(fd1, data->buf, BUF_SIZE);
                                 data->payload = r;
+                                printf("data = %s\n", data -> buf);
                                 if (r < 1)
                                 {
+                                        printf("here");
                                         SHUT_FD1;
                                 }
                                 else
@@ -270,6 +272,7 @@ int main(int argc, char *argv[])
                                 data->payload = r;
                                 if (r < 1)
                                 {
+                                        printf("here2");
                                         SHUT_FD2;
                                 }
                                 else
@@ -355,7 +358,7 @@ void packPacket(struct data_packet* myPacket, char* buffer) {
     d =  htons(myPacket -> ack_num);
     memcpy(buffer+6, (char *) &d, 2);
     memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
-    printf("Data = %s\n", myPacket -> buf);
+//    printf("Data = %s\n", myPacket -> buf);
    }
 
 
