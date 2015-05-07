@@ -75,6 +75,7 @@ int check_elapsed(int t, int socket)
         {
                 return 1;
         }
+      
 }
 
 int recvd_beat()
