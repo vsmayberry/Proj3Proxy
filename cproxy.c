@@ -257,11 +257,12 @@ int main(int argc, char *argv[])
                         if(FD_ISSET(fd2, &rd))
                         {
                                 char temp[BUF_SIZE + 8];
+                                memset(temp, 0, BUF_SIZE + 8);
                                 r = read(fd2, temp, BUF_SIZE + 8);
                                
                                 struct data_packet data2;
                                 struct data_packet* data;
-                                if (r >= 1) {
+                                if (r >= 1 && strlen(temp) == 0) {
                                  data2 = unpackPacket(temp);
                                  data = &data2;
                                 }
@@ -269,8 +270,6 @@ int main(int argc, char *argv[])
                                 
                                 if (r < 1)
                                 {
-                                        printf("HERE1D\n");
-
                                         SHUT_FD2;
                                 }
                                 else
@@ -319,7 +318,17 @@ int main(int argc, char *argv[])
                                 {
                                         data_packet* data = to_s_packets;
                                         to_s_packets = to_s_packets->next;
-                                        r = write(fd2, data->buf, data->payload);
+                                        char buffer[BUF_SIZE + 8];
+                                        memset(buffer, 0, BUF_SIZE + 8);
+                                        data -> seq_num = 0;
+                                        data -> ack_num = 0;
+                                        packPacket(data, buffer);
+                                        //data_packet temp = unpackPacket(buffer);
+                                        //printf("DATA 2 %s\n", temp.buf);
+                                        to_s_packets = NULL;
+                                        r = write(fd2, buffer, sizeof(buffer));
+
+                                        //r = write(fd2, data->buf, data->payload);
                                         if (r < 1)
                                                 SHUT_FD2;
                                         //free(data);
@@ -347,7 +356,7 @@ void packPacket(struct data_packet* myPacket, char* buffer) {
     d =  htons(myPacket -> ack_num);
     memcpy(buffer+6, (char *) &d, 2);
     memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
-    printf("Data = %s\n", myPacket -> buf);
+    //printf("Data = %s\n", myPacket -> buf);
    }
 
 
@@ -356,7 +365,8 @@ struct data_packet unpackPacket(char* buffer) {
    // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
    // Dynamically allocates space into for the message based on message length in header.
 
-   printf("HEYGUY\n");
+   //printf("HEYGUY\n");
+   //printf("%d\n", strlen(buffer));
    struct data_packet tempPacket;
    int  a, b, c, d, e, f, g, h;
    memcpy((char *) &a, buffer, 2);
@@ -373,6 +383,6 @@ struct data_packet unpackPacket(char* buffer) {
    tempPacket.ack_num = h;
    memset(tempPacket.buf, 0, BUF_SIZE);
    memcpy((char *) &(tempPacket.buf), buffer + 8, tempPacket.payload);
-   
+  // printf("DATA 2 = %s\n", tempPacket.buf);
    return tempPacket;
 }
