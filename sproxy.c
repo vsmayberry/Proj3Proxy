@@ -255,9 +255,11 @@ int main(int argc, char *argv[])
                                 {
                                         printf("here");
                                         SHUT_FD1;
+                                
                                 }
                                 else
                                 {
+                                        if (checkPacket(temp) == DATA_P_TYPE) {
                                         data_packet* temp2;
                                         temp2 = to_s_packets;
                                         if(temp2==NULL)
@@ -268,6 +270,7 @@ int main(int argc, char *argv[])
 
 
                                         s_pending+=1;
+                                        }
                                 }
                         }
                 }
