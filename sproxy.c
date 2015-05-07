@@ -1,18 +1,18 @@
 /*
-Virgil Mayberry
-Nick Dejaco
-University of Arizona
-CSc 425 Project 3
-Implementation of a network proxy
-Due Friday May 8, 2015
-The sproxy should listen to TCP port 6200 on the Server, and takes no command-line
-argument.
-Uses code provided on  https://d2l.arizona.edu/content/enforced/408520-765-2151-1CSC425001/tcpserver.c
-*/
+   Virgil Mayberry
+   Nick Dejaco
+   University of Arizona
+   CSc 425 Project 3
+   Implementation of a network proxy
+   Due Friday May 8, 2015
+   The sproxy should listen to TCP port 6200 on the Server, and takes no command-line
+   argument.
+   Uses code provided on  https://d2l.arizona.edu/content/enforced/408520-765-2151-1CSC425001/tcpserver.c
+   */
 /*
-  It listens on port
-  8888, receives 1 short message from a client, then replies to client and exits.
- */
+   It listens on port
+   8888, receives 1 short message from a client, then replies to client and exits.
+   */
 
 
 #include <stdlib.h>
@@ -123,7 +123,7 @@ static int connect_socket(int connect_port, char *address)
 
 int main(int argc, char *argv[])
 {
-        int h;
+        int h, connected;
         int fd1 = -1, fd2 = -1;
         int buf1_avail, buf1_written;
         int buf2_avail, buf2_written;
@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
         s_pending=0;
         c_pending=0;
         char local_ip[] = "127.0.0.1";
+        connected = 0;
 
         //test for to many or to few args
         if (argc != 1) {
@@ -184,23 +185,30 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
-                
+
                 int t = (int) timeout.tv_usec;
 
                 elapsed = elapsed - (1000000 - t);
                 timed = timed - (1000000 - t);
-               // if(timed<0)
-               // {
-                //dead_connection(fd2);
-
-               // }
+                if(timed<0 && connected)
+                {
+                        //dead_connection(fd2);
+                        if(fd2>=0)
+                        {
+                                printf("DEAD CONNECTION\n");
+                                shutdown(fd2, SHUT_RDWR);
+                                close(fd2);
+                                fd2 = -1;
+                                connected = 0;
+                        }
+                }
                 if(elapsed<=0)
                 {
-                   send_heartbeat = 1;
-                   elapsed = 1000000;
+                        send_heartbeat = 1;
+                        elapsed = 1000000;
 
                 }
- 
+
                 //printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
@@ -238,7 +246,12 @@ int main(int argc, char *argv[])
                                         SHUT_FD1;
                                 }
                                 else
+                                {
+
+                                        timed = 3000000;
+                                        connected = 1;
                                         printf("Connection from %s to %s\n", inet_ntoa(client_address.sin_addr), argv[1]);
+                                }
                         }
                 }
                 //if the accept returned something
@@ -247,46 +260,49 @@ int main(int argc, char *argv[])
                         //if the fd1 socket is ready
                         //create a new packet to store in the queue
                         if(FD_ISSET(fd1, &rd))
-                        {                            
+                        {
                                 char temp[BUF_SIZE + 8];
                                 memset(temp, 0, BUF_SIZE + 8);
                                 r = read(fd1, temp, BUF_SIZE + 8);
-                              
+
 
                                 struct data_packet data2;
                                 struct data_packet* data;
-                                
+
                                 if (r >= 1 && strlen(temp) == 0) {
-                                 if (checkPacket(temp) == HEART_P_TYPE)
-                                     printf("RECEIVED HEART BEAT\n");
-                                 else if (checkPacket(temp) == CONNECT_P_TYPE)
-                                     printf("RECEIVED CONNECTION INITIATION\n");
-                                 else {
-                                     data2 = unpackPacket(temp);
-                                     data = &data2;
-                                 }
+                                        if (checkPacket(temp) == HEART_P_TYPE)
+                                        {
+                                                timed = 3000000;
+                                                printf("RECEIVED HEART BEAT\n");
+                                        }
+                                        else if (checkPacket(temp) == CONNECT_P_TYPE)
+                                                printf("RECEIVED CONNECTION INITIATION\n");
+                                        else {
+                                                data2 = unpackPacket(temp);
+                                                data = &data2;
+                                        }
                                 }
-                              
+
 
                                 if (r < 1)
                                 {
                                         printf("here");
                                         SHUT_FD1;
-                                
+
                                 }
                                 else
                                 {
                                         if (checkPacket(temp) == DATA_P_TYPE) {
-                                        data_packet* temp2;
-                                        temp2 = to_s_packets;
-                                        if(temp2==NULL)
-                                        {
-                                                to_s_packets = data;
-                                                data->next = NULL;
-                                        }
+                                                data_packet* temp2;
+                                                temp2 = to_s_packets;
+                                                if(temp2==NULL)
+                                                {
+                                                        to_s_packets = data;
+                                                        data->next = NULL;
+                                                }
 
 
-                                        s_pending+=1;
+                                                s_pending+=1;
                                         }
                                 }
                         }
@@ -337,24 +353,24 @@ int main(int argc, char *argv[])
 
 
 
-                                       if(send_heartbeat == 1)
-                                        {
-                                                heartbeat_packet* hb_packet = malloc(sizeof(hb_packet));
-                                                char buf[16];
-                                                memset(buf, 0, 16);
-                                                hb_packet->type =HEART_P_TYPE;
-                                                hb_packet->payload = 0;
-                                                hb_packet->seq_num = 0;
-                                                hb_packet->ack_num = 0;
-                                                pack_hb_packet(hb_packet, buf);
-                                                if (checkPacket(buf) == HEART_P_TYPE)
-                                                        r = write(fd1, buf, sizeof(buf));
-                                                send_heartbeat = 0;
+                                if(send_heartbeat == 1)
+                                {
+                                        heartbeat_packet* hb_packet = malloc(sizeof(hb_packet));
+                                        char buf[16];
+                                        memset(buf, 0, 16);
+                                        hb_packet->type =HEART_P_TYPE;
+                                        hb_packet->payload = 0;
+                                        hb_packet->seq_num = 0;
+                                        hb_packet->ack_num = 0;
+                                        pack_hb_packet(hb_packet, buf);
+                                        if (checkPacket(buf) == HEART_P_TYPE)
+                                                r = write(fd1, buf, sizeof(buf));
+                                        send_heartbeat = 0;
 
-                                        }
+                                }
 
 
-  
+
                                 if(to_c_packets!=NULL)
                                 {
                                         data_packet* data = to_c_packets;
@@ -365,7 +381,7 @@ int main(int argc, char *argv[])
                                         packPacket(data, buffer);
                                         to_c_packets = NULL;
                                         if (checkPacket(buffer) == DATA_P_TYPE)
-                                            r = write(fd1, buffer, sizeof(buffer));
+                                                r = write(fd1, buffer, sizeof(buffer));
                                         if (r < 1)
                                                 SHUT_FD1;
                                         //free(data);
@@ -399,49 +415,49 @@ int main(int argc, char *argv[])
 
 void packPacket(struct data_packet* myPacket, char* buffer) {
 
-    // Packs message into a packet with structure described in assignment spec using htons(l)
-    // The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
+        // Packs message into a packet with structure described in assignment spec using htons(l)
+        // The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
 
-    int a, b, c, d;
-    a =  htons(myPacket -> type);
-    memcpy(buffer, (char *) &a, 2);
-    b = htons(myPacket -> payload);
-    memcpy(buffer+2, (char*) &b, 2);
-    c = htons(myPacket -> seq_num);
-    memcpy(buffer+4, (char*) &c, 2);
-    d =  htons(myPacket -> ack_num);
-    memcpy(buffer+6, (char *) &d, 2);
-    memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
-//    printf("Data = %s\n", myPacket -> buf);
-   }
+        int a, b, c, d;
+        a =  htons(myPacket -> type);
+        memcpy(buffer, (char *) &a, 2);
+        b = htons(myPacket -> payload);
+        memcpy(buffer+2, (char*) &b, 2);
+        c = htons(myPacket -> seq_num);
+        memcpy(buffer+4, (char*) &c, 2);
+        d =  htons(myPacket -> ack_num);
+        memcpy(buffer+6, (char *) &d, 2);
+        memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
+        //    printf("Data = %s\n", myPacket -> buf);
+}
 
 
 struct data_packet unpackPacket(char* buffer) {
 
-   // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
-   // Dynamically allocates space into for the message based on message length in header.
+        // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
+        // Dynamically allocates space into for the message based on message length in header.
 
-   struct data_packet tempPacket;
-   int  a, b, c, d, e, f, g, h;
-   memcpy((char *) &a, buffer, 2);
-   b = ntohs(a);
-   tempPacket.type = b;
-   memcpy((char *) &c, buffer+2, 2);
-   d = ntohs(c);
-   tempPacket.payload = d;
-   memcpy((char *) &e, buffer+4, 2);
-   f = ntohs(e);
-   tempPacket.seq_num = f;
-   memcpy((char *) &g, buffer+6, 2);
-   h = ntohs(g);
-   tempPacket.ack_num = h;
-   memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload + 1);
-   return tempPacket;
+        struct data_packet tempPacket;
+        int  a, b, c, d, e, f, g, h;
+        memcpy((char *) &a, buffer, 2);
+        b = ntohs(a);
+        tempPacket.type = b;
+        memcpy((char *) &c, buffer+2, 2);
+        d = ntohs(c);
+        tempPacket.payload = d;
+        memcpy((char *) &e, buffer+4, 2);
+        f = ntohs(e);
+        tempPacket.seq_num = f;
+        memcpy((char *) &g, buffer+6, 2);
+        h = ntohs(g);
+        tempPacket.ack_num = h;
+        memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload + 1);
+        return tempPacket;
 }
 
 int checkPacket(char* buffer) {
-   int  a, b;
-   memcpy((char *) &a, buffer, 2);
-   return ntohs(a);
+        int  a, b;
+        memcpy((char *) &a, buffer, 2);
+        return ntohs(a);
 }
 
