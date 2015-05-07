@@ -184,6 +184,23 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
+                
+                int t = (int) timeout.tv_usec;
+
+                elapsed = elapsed - (1000000 - t);
+                timed = timed - (1000000 - t);
+               // if(timed<0)
+               // {
+                //dead_connection(fd2);
+
+               // }
+                if(elapsed<=0)
+                {
+                   send_heartbeat = 1;
+                   elapsed = 1000000;
+
+                }
+ 
                 //printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
@@ -317,6 +334,27 @@ int main(int argc, char *argv[])
                         //check if the queue is empty
                         //if not then send a packet
                         if (FD_ISSET(fd1, &wr)) {
+
+
+
+                                       if(send_heartbeat == 1)
+                                        {
+                                                heartbeat_packet* hb_packet = malloc(sizeof(hb_packet));
+                                                char buf[16];
+                                                memset(buf, 0, 16);
+                                                hb_packet->type =HEART_P_TYPE;
+                                                hb_packet->payload = 0;
+                                                hb_packet->seq_num = 0;
+                                                hb_packet->ack_num = 0;
+                                                pack_hb_packet(hb_packet, buf);
+                                                if (checkPacket(buf) == HEART_P_TYPE)
+                                                        r = write(fd1, buf, sizeof(buf));
+                                                send_heartbeat = 0;
+
+                                        }
+
+
+  
                                 if(to_c_packets!=NULL)
                                 {
                                         data_packet* data = to_c_packets;
