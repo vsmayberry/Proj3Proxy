@@ -50,6 +50,8 @@ Uses code provided on  https://d2l.arizona.edu/content/enforced/408520-765-2151-
 static int forward_port;
 void packPacket(struct data_packet* myPacket, char* buffer);
 struct data_packet unpackPacket(char* buffer);
+int checkPacket(char* buffer);
+
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
@@ -228,29 +230,24 @@ int main(int argc, char *argv[])
                         //if the fd1 socket is ready
                         //create a new packet to store in the queue
                         if(FD_ISSET(fd1, &rd))
-                        {
-                                
-                               /* data_packet* data;
-                                data = malloc(sizeof(data));
-                                data->type = DATA_P_TYPE;
-                                memset(&data->buf, 0, sizeof(BUF_SIZE));
-                                r = read(fd1, data->buf, BUF_SIZE);
-                                data->payload = r;
-                                printf("data = %s\n", data -> buf);
-                               */
-
-                            
+                        {                            
                                 char temp[BUF_SIZE + 8];
                                 memset(temp, 0, BUF_SIZE + 8);
                                 r = read(fd1, temp, BUF_SIZE + 8);
-                              //  printf("DATA now = %s\n", temp);
+                              
 
                                 struct data_packet data2;
                                 struct data_packet* data;
                                 
                                 if (r >= 1 && strlen(temp) == 0) {
-                                  data2 = unpackPacket(temp);     
-                                  data = &data2;
+                                 if (checkPacket(temp) == HEART_P_TYPE)
+                                     printf("RECEIVED HEART BEAT\n");
+                                 else if (checkPacket(temp) == CONNECT_P_TYPE)
+                                     printf("RECEIVED CONNECTION INITIATION\n");
+                                 else {
+                                     data2 = unpackPacket(temp);
+                                     data = &data2;
+                                 }
                                 }
                               
 
@@ -400,3 +397,10 @@ struct data_packet unpackPacket(char* buffer) {
    memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload + 1);
    return tempPacket;
 }
+
+int checkPacket(char* buffer) {
+   int  a, b;
+   memcpy((char *) &a, buffer, 2);
+   return ntohs(a);
+}
+
