@@ -48,7 +48,8 @@ Uses code provided on  https://d2l.arizona.edu/content/enforced/408520-765-2151-
 
 
 static int forward_port;
-
+void packPacket(struct data_packet* myPacket, char* buffer);
+struct data_packet unpackPacket(char* buffer);
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
@@ -153,7 +154,7 @@ int main(int argc, char *argv[])
         for (;;) {
                 timeout.tv_sec = 2;
                 timeout.tv_usec = 0;
-                printf("FOR LOOP\n\n");
+                //printf("FOR LOOP\n\n");
                 //nfds is one of the args for the select function
                 //r is used to catch sockets errors from read write
                 int r, nfds = 0;
@@ -181,7 +182,7 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
-                printf("Select returned %d\n\n", r);
+                //printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
                 if (r == -1 && errno == EINTR)
@@ -299,7 +300,15 @@ int main(int argc, char *argv[])
                                 {
                                         data_packet* data = to_c_packets;
                                         to_c_packets = to_c_packets->next;
-                                        r = write(fd1, data->buf, data->payload);
+                                        char buffer[BUF_SIZE + 8];
+                                        data -> seq_num = 0;
+                                        data -> ack_num = 0;
+                                        packPacket(data, buffer);
+                                        to_c_packets = NULL;
+                                        r = write(fd1, buffer, sizeof(buffer));
+
+ 
+                                        //r = write(fd1, data->buf, data->payload);
                                         if (r < 1)
                                                 SHUT_FD1;
                                         //free(data);
@@ -330,3 +339,45 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
 }
 
+
+void packPacket(struct data_packet* myPacket, char* buffer) {
+
+    // Packs message into a packet with structure described in assignment spec using htons(l)
+    // The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
+
+    int a, b, c, d;
+    a =  htons(myPacket -> type);
+    memcpy(buffer, (char *) &a, 2);
+    b = htons(myPacket -> payload);
+    memcpy(buffer+2, (char*) &b, 2);
+    c = htons(myPacket -> seq_num);
+    memcpy(buffer+4, (char*) &c, 2);
+    d =  htons(myPacket -> ack_num);
+    memcpy(buffer+6, (char *) &d, 2);
+    memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
+    printf("Data = %s\n", myPacket -> buf);
+   }
+
+
+struct data_packet unpackPacket(char* buffer) {
+
+   // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
+   // Dynamically allocates space into for the message based on message length in header.
+
+   struct data_packet tempPacket;
+   int  a, b, c, d, e, f, g, h;
+   memcpy((char *) &a, buffer, 2);
+   b = ntohs(a);
+   tempPacket.type = b;
+   memcpy((char *) &c, buffer+2, 2);
+   d = ntohs(c);
+   tempPacket.payload = d;
+   memcpy((char *) &e, buffer+4, 2);
+   f = ntohs(e);
+   tempPacket.seq_num = f;
+   memcpy((char *) &g, buffer+6, 2);
+   h = ntohs(g);
+   tempPacket.ack_num = h;
+   memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload + 1);
+   return tempPacket;
+}
