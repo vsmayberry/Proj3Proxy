@@ -1,4 +1,3 @@
-
 #define BUF_SIZE 1024
 #define CONNECT_P_TYPE 0
 #define DATA_P_TYPE    1
@@ -49,6 +48,7 @@ int elapsed=1000000;
 int timed=3000000;
 int sequence_number = 0;
 
+
 int dead_connection(int socket)
 {
         do{
@@ -83,8 +83,7 @@ int send_heartbeat = 0;
         {
                 return 1;
         }
-      
-}*/
+                                           }*/
 
 int recvd_beat()
 {
@@ -132,3 +131,4 @@ heartbeat_packet unpack_hb_Packet(char* buffer) {
    tempPacket.ack_num = h;
    return tempPacket;
 }
+

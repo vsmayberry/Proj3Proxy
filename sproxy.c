@@ -50,6 +50,8 @@ Uses code provided on  https://d2l.arizona.edu/content/enforced/408520-765-2151-
 static int forward_port;
 void packPacket(struct data_packet* myPacket, char* buffer);
 struct data_packet unpackPacket(char* buffer);
+int checkPacket(char* buffer);
+
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
@@ -182,6 +184,23 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
+                
+                int t = (int) timeout.tv_usec;
+
+                elapsed = elapsed - (1000000 - t);
+                timed = timed - (1000000 - t);
+               // if(timed<0)
+               // {
+                //dead_connection(fd2);
+
+               // }
+                if(elapsed<=0)
+                {
+                   send_heartbeat = 1;
+                   elapsed = 1000000;
+
+                }
+ 
                 //printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
@@ -228,22 +247,39 @@ int main(int argc, char *argv[])
                         //if the fd1 socket is ready
                         //create a new packet to store in the queue
                         if(FD_ISSET(fd1, &rd))
-                        {
-                                data_packet* data;
-                                data = malloc(sizeof(data));
-                                data->type = DATA_P_TYPE;
-                                memset(&data->buf, 0, sizeof(BUF_SIZE));
-                                r = read(fd1, data->buf, BUF_SIZE);
-                                data->payload = r;
+                        {                            
+                                char temp[BUF_SIZE + 8];
+                                memset(temp, 0, BUF_SIZE + 8);
+                                r = read(fd1, temp, BUF_SIZE + 8);
+                              
+
+                                struct data_packet data2;
+                                struct data_packet* data;
+                                
+                                if (r >= 1 && strlen(temp) == 0) {
+                                 if (checkPacket(temp) == HEART_P_TYPE)
+                                     printf("RECEIVED HEART BEAT\n");
+                                 else if (checkPacket(temp) == CONNECT_P_TYPE)
+                                     printf("RECEIVED CONNECTION INITIATION\n");
+                                 else {
+                                     data2 = unpackPacket(temp);
+                                     data = &data2;
+                                 }
+                                }
+                              
+
                                 if (r < 1)
                                 {
+                                        printf("here");
                                         SHUT_FD1;
+                                
                                 }
                                 else
                                 {
-                                        data_packet* temp;
-                                        temp = to_s_packets;
-                                        if(temp==NULL)
+                                        if (checkPacket(temp) == DATA_P_TYPE) {
+                                        data_packet* temp2;
+                                        temp2 = to_s_packets;
+                                        if(temp2==NULL)
                                         {
                                                 to_s_packets = data;
                                                 data->next = NULL;
@@ -251,6 +287,7 @@ int main(int argc, char *argv[])
 
 
                                         s_pending+=1;
+                                        }
                                 }
                         }
                 }
@@ -270,6 +307,7 @@ int main(int argc, char *argv[])
                                 data->payload = r;
                                 if (r < 1)
                                 {
+                                        printf("here2");
                                         SHUT_FD2;
                                 }
                                 else
@@ -296,6 +334,27 @@ int main(int argc, char *argv[])
                         //check if the queue is empty
                         //if not then send a packet
                         if (FD_ISSET(fd1, &wr)) {
+
+
+
+                                       if(send_heartbeat == 1)
+                                        {
+                                                heartbeat_packet* hb_packet = malloc(sizeof(hb_packet));
+                                                char buf[16];
+                                                memset(buf, 0, 16);
+                                                hb_packet->type =HEART_P_TYPE;
+                                                hb_packet->payload = 0;
+                                                hb_packet->seq_num = 0;
+                                                hb_packet->ack_num = 0;
+                                                pack_hb_packet(hb_packet, buf);
+                                                if (checkPacket(buf) == HEART_P_TYPE)
+                                                        r = write(fd1, buf, sizeof(buf));
+                                                send_heartbeat = 0;
+
+                                        }
+
+
+  
                                 if(to_c_packets!=NULL)
                                 {
                                         data_packet* data = to_c_packets;
@@ -305,10 +364,8 @@ int main(int argc, char *argv[])
                                         data -> ack_num = 0;
                                         packPacket(data, buffer);
                                         to_c_packets = NULL;
-                                        r = write(fd1, buffer, sizeof(buffer));
-
-
-                                        //r = write(fd1, data->buf, data->payload);
+                                        if (checkPacket(buffer) == DATA_P_TYPE)
+                                            r = write(fd1, buffer, sizeof(buffer));
                                         if (r < 1)
                                                 SHUT_FD1;
                                         //free(data);
@@ -355,7 +412,7 @@ void packPacket(struct data_packet* myPacket, char* buffer) {
     d =  htons(myPacket -> ack_num);
     memcpy(buffer+6, (char *) &d, 2);
     memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
-    printf("Data = %s\n", myPacket -> buf);
+//    printf("Data = %s\n", myPacket -> buf);
    }
 
 
@@ -381,3 +438,10 @@ struct data_packet unpackPacket(char* buffer) {
    memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload + 1);
    return tempPacket;
 }
+
+int checkPacket(char* buffer) {
+   int  a, b;
+   memcpy((char *) &a, buffer, 2);
+   return ntohs(a);
+}
+
