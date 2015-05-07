@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
                                         to_c_packets = NULL;
                                         r = write(fd1, buffer, sizeof(buffer));
 
- 
+
                                         //r = write(fd1, data->buf, data->payload);
                                         if (r < 1)
                                                 SHUT_FD1;
