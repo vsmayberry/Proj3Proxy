@@ -43,6 +43,7 @@
 static int forward_port;
 void packPacket(struct data_packet* myPacket, char* buffer);
 struct data_packet unpackPacket(char* buffer);
+int checkPacket(char* buffer);
 
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
@@ -258,13 +259,19 @@ int main(int argc, char *argv[])
                         {
                                 char temp[BUF_SIZE + 8];
                                 memset(temp, 0, BUF_SIZE + 8);
-                                r = read(fd2, temp, BUF_SIZE + 8);
+                                r = read(fd2, temp, BUF_SIZE + 8);                            
                                
                                 struct data_packet data2;
                                 struct data_packet* data;
                                 if (r >= 1 && strlen(temp) == 0) {
-                                 data2 = unpackPacket(temp);
-                                 data = &data2;
+                                 if (checkPacket(temp) == HEART_P_TYPE) 
+                                     printf("RECEIVED HEART BEAT\n");
+                                 else if (checkPacket(temp) == CONNECT_P_TYPE)
+                                     printf("RECEIVED CONNECTION INITIATION\n");
+                                 else {
+                                     data2 = unpackPacket(temp);
+                                     data = &data2;
+                                 }
                                 }
 
                                 
@@ -362,9 +369,6 @@ void packPacket(struct data_packet* myPacket, char* buffer) {
 
 struct data_packet unpackPacket(char* buffer) {
 
-   // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
-   // Dynamically allocates space into for the message based on message length in header.
-
    //printf("HEYGUY\n");
    //printf("%d\n", strlen(buffer));
    struct data_packet tempPacket;
@@ -386,3 +390,11 @@ struct data_packet unpackPacket(char* buffer) {
   // printf("DATA 2 = %s\n", tempPacket.buf);
    return tempPacket;
 }
+
+int checkPacket(char* buffer) {
+   int  a, b;
+   memcpy((char *) &a, buffer, 2);
+   return ntohs(a);
+}
+   
+
