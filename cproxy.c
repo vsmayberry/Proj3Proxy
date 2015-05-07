@@ -59,58 +59,58 @@ void print_cache(struct data_cache* cache_data);
 static int listen_socket(int listen_port)
 {
 
-	struct sockaddr_in a;
-	int s;
-	int yes;
+        struct sockaddr_in a;
+        int s;
+        int yes;
 
-	s = socket(AF_INET, SOCK_STREAM, 0);
-	if (s == -1) {
-		perror("socket");
-		return -1;
-	}
-	yes = 1;
-	if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
-				&yes, sizeof(yes)) == -1) {
-		perror("setsockopt");
-		close(s);
-		return -1;
-	}
-	memset(&a, 0, sizeof(a));
-	a.sin_port = htons(listen_port);
-	a.sin_family = AF_INET;
-	if (bind(s, (struct sockaddr *) &a, sizeof(a)) == -1) {
-		perror("bind");
-		close(s);
-		return -1;
-	}
-	//printf("accepting connections on port %d\n", listen_port);
-	listen(s, 10);
-	return s;
+        s = socket(AF_INET, SOCK_STREAM, 0);
+        if (s == -1) {
+                perror("socket");
+                return -1;
+        }
+        yes = 1;
+        if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
+                                &yes, sizeof(yes)) == -1) {
+                perror("setsockopt");
+                close(s);
+                return -1;
+        }
+        memset(&a, 0, sizeof(a));
+        a.sin_port = htons(listen_port);
+        a.sin_family = AF_INET;
+        if (bind(s, (struct sockaddr *) &a, sizeof(a)) == -1) {
+                perror("bind");
+                close(s);
+                return -1;
+        }
+        //printf("accepting connections on port %d\n", listen_port);
+        listen(s, 10);
+        return s;
 }
 
 //function to connect to the server
 static int connect_socket(int connect_port, char *address)
 {
-	struct sockaddr_in a;
-	int s;
+        struct sockaddr_in a;
+        int s;
 
-	//printf("connection to socket port = %d\n", connect_port);
-	s = socket(AF_INET, SOCK_STREAM, 0);
-	if (s == -1) {
-		perror("socket");
-		close(s);
-		return -1;
-	}
+        //printf("connection to socket port = %d\n", connect_port);
+        s = socket(AF_INET, SOCK_STREAM, 0);
+        if (s == -1) {
+                perror("socket");
+                close(s);
+                return -1;
+        }
 
-	memset(&a, 0, sizeof(a));
-	a.sin_port = htons(connect_port);
-	a.sin_family = AF_INET;
+        memset(&a, 0, sizeof(a));
+        a.sin_port = htons(connect_port);
+        a.sin_family = AF_INET;
 
-	if (!inet_aton(address, (struct in_addr *) &a.sin_addr.s_addr)) {
-		perror("bad IP address format");
-		close(s);
-		return -1;
-	}
+        if (!inet_aton(address, (struct in_addr *) &a.sin_addr.s_addr)) {
+                perror("bad IP address format");
+                close(s);
+                return -1;
+        }
 
         //printf("connection to socket port = %d\n", connect_port);
         s = socket(AF_INET, SOCK_STREAM, 0);
@@ -334,9 +334,9 @@ int main(int argc, char *argv[])
                         if(FD_ISSET(fd1, &rd))
                         {
                                 data_packet* data;
-                                data = malloc(sizeof(data));
+                                data = malloc(sizeof(*data));
                                 data->type = DATA_P_TYPE;
-                                memset(&data->buf, 0, sizeof(BUF_SIZE));
+                                memset(&data->buf, 0, BUF_SIZE);
                                 r = read(fd1, data->buf, BUF_SIZE);
                                 data->payload = r;
                                 if (r < 1)
@@ -347,12 +347,22 @@ int main(int argc, char *argv[])
                                 {
                                         data_packet* temp;
                                         temp = to_s_packets;
+                                                printf("temp = %d\n", temp);
+                                                printf("s_pending = %d\n", s_pending);
                                         if(temp==NULL)
                                         {
                                                 to_s_packets = data;
                                                 data->next = NULL;
                                         }
-
+                                        else
+                                        {
+                                                while(temp->next!=NULL)
+                                                {
+                                                        temp = temp->next;
+                                                }
+                                                temp->next = data;
+                                                data->next = NULL;
+                                        }
 
                                         s_pending+=1;
                                 }
@@ -421,8 +431,8 @@ int main(int argc, char *argv[])
                                         if (r < 1)
                                                 SHUT_FD1;
                                         //free(data);
-                                }
                                 c_pending-=1;
+                                }
                         }
                 }
                 //if server side is functioning
@@ -467,8 +477,8 @@ int main(int argc, char *argv[])
                                         if (r < 1)
                                                 SHUT_FD2;
                                         //free(data);
-                                }
                                 s_pending-=1;
+                                }
                         }
                 }
 
