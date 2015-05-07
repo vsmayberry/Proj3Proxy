@@ -176,6 +176,7 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
+                check_elapsed(timeout.tv_usec, fd2);
                 //printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
@@ -263,8 +264,8 @@ int main(int argc, char *argv[])
                                 struct data_packet data2;
                                 struct data_packet* data;
                                 if (r >= 1 && strlen(temp) == 0) {
-                                 data2 = unpackPacket(temp);
-                                 data = &data2;
+                                        data2 = unpackPacket(temp);
+                                        data = &data2;
                                 }
 
 
@@ -314,6 +315,18 @@ int main(int argc, char *argv[])
                         //if the server side is ready to write
                         //send any pending packets
                         if (FD_ISSET(fd2, &wr)) {
+                                if(send_heartbeat==1)
+                                {
+                                        heartbeat_packet* hb_packet;
+                                        char buf[16];
+                                        hb_packet->type =HEART_P_TYPE;
+                                        hb_packet->payload = 0;
+                                        hb_packet->seq_num = Useq_num++;
+                                        hb_packet->ack_num = Uack_num;
+                                        pack_hb_packet(hb_packet, buf);
+                                        r = write(fd2, buf, sizeof(buf));
+                                        send_heartbeat = 0;
+                                }
                                 if(to_s_packets!=NULL)
                                 {
                                         data_packet* data = to_s_packets;
@@ -343,45 +356,45 @@ int main(int argc, char *argv[])
 
 void packPacket(struct data_packet* myPacket, char* buffer) {
 
-    // Packs message into a packet with structure described in assignment spec using htons(l)
-    // The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
+        // Packs message into a packet with structure described in assignment spec using htons(l)
+        // The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
 
-    int a, b, c, d;
-    a =  htons(myPacket -> type);
-    memcpy(buffer, (char *) &a, 2);
-    b = htons(myPacket -> payload);
-    memcpy(buffer+2, (char*) &b, 2);
-    c = htons(myPacket -> seq_num);
-    memcpy(buffer+4, (char*) &c, 2);
-    d =  htons(myPacket -> ack_num);
-    memcpy(buffer+6, (char *) &d, 2);
-    memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
-    //printf("Data = %s\n", myPacket -> buf);
-   }
+        int a, b, c, d;
+        a =  htons(myPacket -> type);
+        memcpy(buffer, (char *) &a, 2);
+        b = htons(myPacket -> payload);
+        memcpy(buffer+2, (char*) &b, 2);
+        c = htons(myPacket -> seq_num);
+        memcpy(buffer+4, (char*) &c, 2);
+        d =  htons(myPacket -> ack_num);
+        memcpy(buffer+6, (char *) &d, 2);
+        memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
+        //printf("Data = %s\n", myPacket -> buf);
+}
 
 
 struct data_packet unpackPacket(char* buffer) {
 
-   // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
-   // Dynamically allocates space into for the message based on message length in header.
+        // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
+        // Dynamically allocates space into for the message based on message length in header.
 
-   //printf("HEYGUY\n");
-   //printf("%d\n", strlen(buffer));
-   struct data_packet tempPacket;
-   int  a, b, c, d, e, f, g, h;
-   memcpy((char *) &a, buffer, 2);
-   b = ntohs(a);
-   tempPacket.type = b;
-   memcpy((char *) &c, buffer+2, 2);
-   d = ntohs(c);
-   tempPacket.payload = d;
-   memcpy((char *) &e, buffer+4, 2);
-   f = ntohs(e);
-   tempPacket.seq_num = f;
-   memcpy((char *) &g, buffer+6, 2);
-   h = ntohs(g);
-   tempPacket.ack_num = h;
-   memset(tempPacket.buf, 0, BUF_SIZE);
-   memcpy((char *) &(tempPacket.buf), buffer + 8, tempPacket.payload);
-   return tempPacket;
+        //printf("HEYGUY\n");
+        //printf("%d\n", strlen(buffer));
+        struct data_packet tempPacket;
+        int  a, b, c, d, e, f, g, h;
+        memcpy((char *) &a, buffer, 2);
+        b = ntohs(a);
+        tempPacket.type = b;
+        memcpy((char *) &c, buffer+2, 2);
+        d = ntohs(c);
+        tempPacket.payload = d;
+        memcpy((char *) &e, buffer+4, 2);
+        f = ntohs(e);
+        tempPacket.seq_num = f;
+        memcpy((char *) &g, buffer+6, 2);
+        h = ntohs(g);
+        tempPacket.ack_num = h;
+        memset(tempPacket.buf, 0, BUF_SIZE);
+        memcpy((char *) &(tempPacket.buf), buffer + 8, tempPacket.payload);
+        return tempPacket;
 }

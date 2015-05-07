@@ -35,6 +35,10 @@ data_packet* to_s_packets = NULL;
 data_packet* to_c_packets = NULL;
 int s_pending;
 int c_pending;
+int Useq_num=0;
+int Uack_num=0;
+int elapsed=1000000;
+int timeout=3000000;
 
 
 int dead_connection(int socket)
@@ -51,8 +55,7 @@ int dead_connection(int socket)
 
 
 //HEARTBEAT CODE
-int elapsed=1000000;
-int timeout=3000000;
+int send_heartbeat = 0;
 int check_elapsed(int t, int socket)
 {
         elapsed = elapsed - (1000000 - t);
@@ -64,6 +67,7 @@ int check_elapsed(int t, int socket)
         }
         if(elapsed<0)
         {
+                send_heartbeat = 1;
                 elapsed = 1000000;
                 return 0;
         }
@@ -77,4 +81,45 @@ int recvd_beat()
 {
         timeout = 3000000;
         return 0;
+}
+
+
+void pack_hb_packet(struct heartbeat_packet* myPacket, char* buffer) {
+
+        // Packs message into a packet with structure described in assignment spec using htons(l)
+        // The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
+
+        int a, b, c, d;
+        a =  htons(myPacket -> type);
+        memcpy(buffer, (char *) &a, 2);
+        b = htons(myPacket -> payload);
+        memcpy(buffer+2, (char*) &b, 2);
+        c = htons(myPacket -> seq_num);
+        memcpy(buffer+4, (char*) &c, 2);
+        d =  htons(myPacket -> ack_num);
+        memcpy(buffer+6, (char *) &d, 2);
+}
+
+
+
+heartbeat_packet unpack_hb_Packet(char* buffer) {
+
+   // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
+   // Dynamically allocates space into for the message based on message length in header.
+
+   heartbeat_packet tempPacket;
+   int  a, b, c, d, e, f, g, h;
+   memcpy((char *) &a, buffer, 2);
+   b = ntohs(a);
+   tempPacket.type = b;
+   memcpy((char *) &c, buffer+2, 2);
+   d = ntohs(c);
+   tempPacket.payload = d;
+   memcpy((char *) &e, buffer+4, 2);
+   f = ntohs(e);
+   tempPacket.seq_num = f;
+   memcpy((char *) &g, buffer+6, 2);
+   h = ntohs(g);
+   tempPacket.ack_num = h;
+   return tempPacket;
 }
