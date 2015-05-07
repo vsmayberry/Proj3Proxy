@@ -364,8 +364,8 @@ int main(int argc, char *argv[])
                                         data -> ack_num = 0;
                                         packPacket(data, buffer);
                                         to_c_packets = NULL;
-                                        r = write(fd1, buffer, sizeof(buffer));
-                                                                                    
+                                        if (checkPacket(buffer) == DATA_P_TYPE)
+                                            r = write(fd1, buffer, sizeof(buffer);
                                         if (r < 1)
                                                 SHUT_FD1;
                                         //free(data);

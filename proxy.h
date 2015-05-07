@@ -121,5 +121,8 @@ heartbeat_packet unpack_hb_Packet(char* buffer) {
    tempPacket.ack_num = h;
    return tempPacket;
 }
+<<<<<<< HEAD
                                                                                                                       
 
+=======
+>>>>>>> a62531d78878e6fecfce1819b7946a295f0487f9
