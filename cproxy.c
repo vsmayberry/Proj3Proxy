@@ -339,6 +339,9 @@ int main(int argc, char *argv[])
                                 memset(&data->buf, 0, BUF_SIZE);
                                 r = read(fd1, data->buf, BUF_SIZE);
                                 data->payload = r;
+                                data -> seq_num = sequence_number++;
+                                data -> ack_num = 0;
+                               // data -> next = NULL;
                                 if (r < 1)
                                 {
                                         SHUT_FD1;
@@ -354,15 +357,40 @@ int main(int argc, char *argv[])
                                                 to_s_packets = data;
                                                 data->next = NULL;
                                         }
-                                        else
-                                        {
-                                                while(temp->next!=NULL)
-                                                {
-                                                        temp = temp->next;
+
+
+                                        //printf("%d\n", (*data).seq_num);
+                                      
+                                        data_packet* temp5;
+                                        temp5 = caching;
+                                        if (temp5 == NULL) {
+                                             struct data_packet temp4 = *data;
+                                             caching = malloc(sizeof(temp4)); 
+                                             caching -> type = temp4.type;
+                                             caching -> payload = temp4.payload;
+                                             caching -> seq_num = temp4.seq_num;
+                                             caching -> ack_num = temp4.ack_num;
+                                             strcpy(caching -> buf, temp4.buf); 
+                                             caching -> next = NULL;
+                                             printf("First = %d\n", caching -> seq_num);
+                                       }
+
+                                       else
+                                          {
+                                                while(temp5->next!=NULL)     {
+                                                        temp5 = temp5->next;
                                                 }
-                                                temp->next = data;
-                                                data->next = NULL;
-                                        }
+                                                struct data_packet temp6 = *data;
+                                                temp5->next = malloc(sizeof(temp6));
+                                                temp5 -> next -> type = temp6.type;
+                                                temp5 -> next -> payload = temp6.payload;
+                                                temp5 -> next -> seq_num = temp6.seq_num;
+                                                temp5 -> next -> ack_num = temp6.ack_num;
+                                                strcpy(temp5 -> next -> buf, temp6.buf);
+                                                temp5 -> next -> next = NULL;
+                                                printf("Current = %d\n", temp5 -> next -> seq_num);         
+                                               
+                                         }
 
                                         s_pending+=1;
                                 }
@@ -465,8 +493,8 @@ int main(int argc, char *argv[])
                                         to_s_packets = to_s_packets->next;
                                         char buffer[BUF_SIZE + 8];
                                         memset(buffer, 0, BUF_SIZE + 8);
-                                        data -> seq_num = 0;
-                                        data -> ack_num = 0;
+                                        //data -> seq_num = 0;
+                                        //data -> ack_num = 0;
                                         packPacket(data, buffer);
                                         send_heartbeat = 0;
                                         to_s_packets = NULL;
