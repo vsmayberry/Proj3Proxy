@@ -258,19 +258,20 @@ int main(int argc, char *argv[])
                         {
                                 char temp[BUF_SIZE + 8];
                                 r = read(fd2, temp, BUF_SIZE + 8);
-
+                                
                                 struct data_packet data2 = unpackPacket(temp);
-                                struct data_packet* data = &data2;
+                                data_packet* data = &data2;
 
+                                
                                 if (r < 1)
                                 {
                                         SHUT_FD2;
                                 }
                                 else
                                 {
-                                        data_packet* temp;
-                                        temp = to_c_packets;
-                                        if(temp==NULL)
+                                        data_packet* temp2;
+                                        temp2 = to_c_packets;
+                                        if(temp2 == NULL)
                                         {
                                                 to_c_packets = data;
                                                 data->next=NULL;
@@ -349,6 +350,7 @@ struct data_packet unpackPacket(char* buffer) {
    // Uses memcpy to copy out parts of the buffer back into their individual values in the packet struct.
    // Dynamically allocates space into for the message based on message length in header.
 
+   printf("HEYGUY\n");
    struct data_packet tempPacket;
    int  a, b, c, d, e, f, g, h;
    memcpy((char *) &a, buffer, 2);
@@ -363,6 +365,6 @@ struct data_packet unpackPacket(char* buffer) {
    memcpy((char *) &g, buffer+6, 2);
    h = ntohs(g);
    tempPacket.ack_num = h;
-   memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload + 1);
+   memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload);
    return tempPacket;
 }
