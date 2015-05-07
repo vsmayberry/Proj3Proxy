@@ -38,9 +38,11 @@ int Useq_num=0;
 int Uack_num=0;
 int elapsed=1000000;
 int timed=3000000;
+int conn_status = 0;
 
 int dead_connection(int socket)
 {
+        conn_status = 0;
         do{
                 if(socket>=0)
                 {
