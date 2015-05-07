@@ -44,6 +44,8 @@ static int forward_port;
 void packPacket(struct data_packet* myPacket, char* buffer);
 struct data_packet unpackPacket(char* buffer);
 int checkPacket(char* buffer);
+void addPacket(struct data_packet* data, struct data_cache* cache_data);
+void print_cache(struct data_cache* cache_data);
 
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
@@ -124,6 +126,7 @@ int main(int argc, char *argv[])
 	int forward_port = 6200;
 	int listen_port = 5200;
 	struct timeval timeout;
+        struct data_packet* cache_data = NULL;
 	s_pending=0;
 	c_pending=0;
 	int wow = 0;
@@ -179,22 +182,22 @@ int main(int argc, char *argv[])
 		r = select(nfds + 1, &rd, &wr, &er, &timeout);
 		int t = (int) timeout.tv_usec;
 
-                elapsed = elapsed - (1000000 - t);
-                timed = timed - (1000000 - t);
-               // if(timed<0)
-               // {
-                //dead_connection(fd2);
+		elapsed = elapsed - (1000000 - t);
+		timed = timed - (1000000 - t);
+		// if(timed<0)
+		// {
+		//dead_connection(fd2);
 
-               // }
-                if(elapsed<=0)
-                {
-                   send_heartbeat = 1;
-                   elapsed = 1000000;
+		// }
+		if(elapsed<=0)
+		{
+			send_heartbeat = 1;
+			elapsed = 1000000;
 
-                }
+		}
 
-                
-                // check_elapsed(timeout.tv_usec, fd2);
+
+		// check_elapsed(timeout.tv_usec, fd2);
 		//printf("Select returned %d\n\n", r);
 
 		//if it caught a signal ie select returned without a fd or timeout
@@ -247,22 +250,50 @@ int main(int argc, char *argv[])
 				data->type = DATA_P_TYPE;
 				memset(&data->buf, 0, sizeof(BUF_SIZE));
 				r = read(fd1, data->buf, BUF_SIZE);
-				data->payload = r;
+			
+
 				if (r < 1)
 				{
 					SHUT_FD1;
 				}
 				else
 				{
+                                       data->payload = r;
+                              	       data -> seq_num = sequence_number++;
+			               data -> ack_num = 0;
+                                       printf("Payload = %d\n", r);
+
 					data_packet* temp;
 					temp = to_s_packets;
 					if(temp==NULL)
-					{
+				        {
 						to_s_packets = data;
-						data->next = NULL;
+                                                data -> next = NULL;
 					}
 
+	                                
+                                        /*data_packet* temp2;
+                                        temp2 = caching;
+                                        if(temp2==NULL)
+                                        {
+                                                caching = data;
+                                                printf("First = %d\n", data -> seq_num);
+                                                data->next = NULL;
+                                        }
 
+                                        else if (temp2 -> next == NULL) {
+                                               printf("Second = %d\n", data -> seq_num);
+                                               data -> next = NULL;
+                                               temp2 -> next = data;
+                                        }
+
+                                        else {
+                                              while (temp2 -> next != NULL)
+                                                  temp2 = temp2 -> next;
+                                              data -> next = NULL;
+                                              temp2 -> next = data;
+                                       }*/
+                                             
 					s_pending+=1;
 				}
 			}
@@ -302,133 +333,134 @@ int main(int argc, char *argv[])
 						{
 							to_c_packets = data;
 							data->next=NULL;
-						}
-
-
-
+						}  
+                                                  
+                                               
 						c_pending+=1;
 					}
 				}
 			}
-                   }
-
-			//if client side is working
-			if (fd1 > 0)
-			{
-				//if client side is ready to write
-				//check if the queue is empty
-				//if not then send a packet
-				if (FD_ISSET(fd1, &wr)) {
-					if(to_c_packets!=NULL)
-					{
-						data_packet* data = to_c_packets;
-						to_c_packets = to_c_packets->next;
-						r = write(fd1, data->buf, data->payload);
-						if (r < 1)
-							SHUT_FD1;
-						//free(data);
-					}
-					c_pending-=1;
-				}
-			}
-			//if server side is functioning
-			if (fd2 > 0)
-			{
-				//if the server side is ready to write
-				//send any pending packets
-				if (FD_ISSET(fd2, &wr)) {
-
-
-					if(send_heartbeat == 1)
-					{
-						heartbeat_packet* hb_packet = malloc(sizeof(hb_packet));
-						char buf[16];
-                                                memset(buf, 0, 16);
-						hb_packet->type =HEART_P_TYPE;
-						hb_packet->payload = 0;
-						hb_packet->seq_num = 0;
-						hb_packet->ack_num = 0;
-						pack_hb_packet(hb_packet, buf);
-                                                if (checkPacket(buf) == HEART_P_TYPE)
-					         	r = write(fd2, buf, sizeof(buf));
-						send_heartbeat = 0;
-
-					}
-
-					if(to_s_packets!=NULL)
-					{
-						data_packet* data = to_s_packets;
-						to_s_packets = to_s_packets->next;
-						char buffer[BUF_SIZE + 8];
-						memset(buffer, 0, BUF_SIZE + 8);
-						data -> seq_num = 0;
-						data -> ack_num = 0;
-						packPacket(data, buffer);
-                                                send_heartbeat = 0;
-						to_s_packets = NULL;
-                                                if (checkPacket(buffer) == DATA_P_TYPE)
-						       r = write(fd2, buffer, sizeof(buffer));
-
-						//r = write(fd2, data->buf, data->payload);
-						if (r < 1)
-							SHUT_FD2;
-						//free(data);
-					}
-					s_pending-=1;
-				}
-			}
-
 		}
-		exit(EXIT_SUCCESS);
+
+		//if client side is working
+		if (fd1 > 0)
+		{
+			//if client side is ready to write
+			//check if the queue is empty
+			//if not then send a packet
+			if (FD_ISSET(fd1, &wr)) {
+				if(to_c_packets!=NULL)
+				{
+					data_packet* data = to_c_packets;
+                                        //to_c_packets = NULL;
+					to_c_packets = to_c_packets->next;
+					r = write(fd1, data->buf, data->payload);
+					if (r < 1)
+						SHUT_FD1;
+					//free(data);
+				}
+				c_pending-=1;
+			}
+		}
+		//if server side is functioning
+		if (fd2 > 0)
+		{
+			//if the server side is ready to write
+			//send any pending packets
+			if (FD_ISSET(fd2, &wr)) {
+
+
+				if(send_heartbeat == 1)
+				{
+					heartbeat_packet* hb_packet = malloc(sizeof(hb_packet));
+					char buf[16];
+					memset(buf, 0, 16);
+					hb_packet->type =HEART_P_TYPE;
+					hb_packet->payload = 0;
+					hb_packet->seq_num = 0;
+					hb_packet->ack_num = 0;
+					pack_hb_packet(hb_packet, buf);
+					if (checkPacket(buf) == HEART_P_TYPE)
+						r = write(fd2, buf, sizeof(buf));
+					send_heartbeat = 0;
+
+				}
+
+				if(to_s_packets!=NULL)
+				{
+					data_packet* data = to_s_packets;
+					to_s_packets = to_s_packets->next;
+					char buffer[BUF_SIZE + 8];
+					memset(buffer, 0, BUF_SIZE + 8);
+					packPacket(data, buffer);
+					send_heartbeat = 0;
+					to_s_packets = NULL;
+					if (checkPacket(buffer) == DATA_P_TYPE)
+						r = write(fd2, buffer, sizeof(buffer));
+
+					if (r < 1)
+						SHUT_FD2;
+					//free(data);
+				}
+				s_pending-=1;
+			}
+		}
+
 	}
+	exit(EXIT_SUCCESS);
+}
 
-	void packPacket(struct data_packet* myPacket, char* buffer) {
+void packPacket(struct data_packet* myPacket, char* buffer) {
 
-		// Packs message into a packet with structure described in assignment spec using htons(l)
-		// The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
+	// Packs message into a packet with structure described in assignment spec using htons(l)
+	// The buffer contains the time in seconds, the time in msec, the message lengh, and the actual message.
 
-		int a, b, c, d;
-		a =  htons(myPacket -> type);
-		memcpy(buffer, (char *) &a, 2);
-		b = htons(myPacket -> payload);
-		memcpy(buffer+2, (char*) &b, 2);
-		c = htons(myPacket -> seq_num);
-		memcpy(buffer+4, (char*) &c, 2);
-		d =  htons(myPacket -> ack_num);
-		memcpy(buffer+6, (char *) &d, 2);
-		memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
-		//printf("Data = %s\n", myPacket -> buf);
-	}
-
-
-	struct data_packet unpackPacket(char* buffer) {
-
-		//printf("HEYGUY\n");
-		//printf("%d\n", strlen(buffer));
-		struct data_packet tempPacket;
-		int  a, b, c, d, e, f, g, h;
-		memcpy((char *) &a, buffer, 2);
-		b = ntohs(a);
-		tempPacket.type = b;
-		memcpy((char *) &c, buffer+2, 2);
-		d = ntohs(c);
-		tempPacket.payload = d;
-		memcpy((char *) &e, buffer+4, 2);
-		f = ntohs(e);
-		tempPacket.seq_num = f;
-		memcpy((char *) &g, buffer+6, 2);
-		h = ntohs(g);
-		tempPacket.ack_num = h;
-		memset(tempPacket.buf, 0, BUF_SIZE);
-		memcpy((char *) &(tempPacket.buf), buffer + 8, tempPacket.payload);
-		// printf("DATA 2 = %s\n", tempPacket.buf);
-		return tempPacket;
-	}
-
-	int checkPacket(char* buffer) {
-		int  a, b;
-		memcpy((char *) &a, buffer, 2);
-		return ntohs(a);
-	}
+	int a, b, c, d;
+	a =  htons(myPacket -> type);
+	memcpy(buffer, (char *) &a, 2);
+	b = htons(myPacket -> payload);
+	memcpy(buffer+2, (char*) &b, 2);
+	c = htons(myPacket -> seq_num);
+	memcpy(buffer+4, (char*) &c, 2);
+	d =  htons(myPacket -> ack_num);
+	memcpy(buffer+6, (char *) &d, 2);
+	memcpy(buffer+8, (char *) myPacket->buf, myPacket -> payload);
+	//printf("Data = %s\n", myPacket -> buf);
+}
 
 
+struct data_packet unpackPacket(char* buffer) {
+
+	//printf("HEYGUY\n");
+	//printf("%d\n", strlen(buffer));
+	struct data_packet tempPacket;
+	int  a, b, c, d, e, f, g, h;
+	memcpy((char *) &a, buffer, 2);
+	b = ntohs(a);
+	tempPacket.type = b;
+	memcpy((char *) &c, buffer+2, 2);
+	d = ntohs(c);
+	tempPacket.payload = d;
+	memcpy((char *) &e, buffer+4, 2);
+	f = ntohs(e);
+	tempPacket.seq_num = f;
+	memcpy((char *) &g, buffer+6, 2);
+	h = ntohs(g);
+	tempPacket.ack_num = h;
+	memset(tempPacket.buf, 0, BUF_SIZE);
+	memcpy((char *) &(tempPacket.buf), buffer + 8, tempPacket.payload);
+	// printf("DATA 2 = %s\n", tempPacket.buf);
+	return tempPacket;
+}
+
+int checkPacket(char* buffer) {
+	int  a, b;
+	memcpy((char *) &a, buffer, 2);
+	return ntohs(a);
+}
+
+
+
+         
+
+      
