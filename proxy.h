@@ -38,7 +38,7 @@ int c_pending;
 int Useq_num=0;
 int Uack_num=0;
 int elapsed=1000000;
-int timeout=3000000;
+int timed=3000000;
 
 
 int dead_connection(int socket)
@@ -56,7 +56,7 @@ int dead_connection(int socket)
 
 //HEARTBEAT CODE
 int send_heartbeat = 0;
-int check_elapsed(int t, int socket)
+/*int check_elapsed(int t, int socket)
 {
         elapsed = elapsed - (1000000 - t);
         timeout = timeout - (1000000 - t);
@@ -65,7 +65,7 @@ int check_elapsed(int t, int socket)
                 dead_connection(socket);
                 return -1;
         }
-        if(elapsed<0)
+        if(elapsed<=0)
         {
                 send_heartbeat = 1;
                 elapsed = 1000000;
@@ -76,11 +76,11 @@ int check_elapsed(int t, int socket)
                 return 1;
         }
       
-}
+}*/
 
 int recvd_beat()
 {
-        timeout = 3000000;
+        timed = 3000000;
         return 0;
 }
 

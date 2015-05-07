@@ -177,7 +177,24 @@ int main(int argc, char *argv[])
 
 		//call select which can monitor time and whic sockets are ready
 		r = select(nfds + 1, &rd, &wr, &er, &timeout);
-		// check_elapsed(timeout.tv_usec, fd2);
+		int t = (int) timeout.tv_usec;
+
+                elapsed = elapsed - (1000000 - t);
+                timed = timed - (1000000 - t);
+               // if(timed<0)
+               // {
+                //dead_connection(fd2);
+
+               // }
+                if(elapsed<=0)
+                {
+                   send_heartbeat = 1;
+                   elapsed = 1000000;
+
+                }
+
+                
+                // check_elapsed(timeout.tv_usec, fd2);
 		//printf("Select returned %d\n\n", r);
 
 		//if it caught a signal ie select returned without a fd or timeout
@@ -322,17 +339,19 @@ int main(int argc, char *argv[])
 				if (FD_ISSET(fd2, &wr)) {
 
 
-					if(send_heartbeat == 0)
+					if(send_heartbeat == 1)
 					{
 						heartbeat_packet* hb_packet = malloc(sizeof(hb_packet));
 						char buf[16];
+                                                memset(buf, 0, 16);
 						hb_packet->type =HEART_P_TYPE;
 						hb_packet->payload = 0;
 						hb_packet->seq_num = 0;
 						hb_packet->ack_num = 0;
 						pack_hb_packet(hb_packet, buf);
-						r = write(fd2, buf, sizeof(buf));
-						send_heartbeat = 1;
+                                                if (checkPacket(buf) == HEART_P_TYPE)
+					         	r = write(fd2, buf, sizeof(buf));
+						send_heartbeat = 0;
 
 					}
 
@@ -345,11 +364,10 @@ int main(int argc, char *argv[])
 						data -> seq_num = 0;
 						data -> ack_num = 0;
 						packPacket(data, buffer);
-						send_heartbeat = 1;
-						//data_packet temp = unpackPacket(buffer);
-						//printf("DATA 2 %s\n", temp.buf);
+                                                send_heartbeat = 0;
 						to_s_packets = NULL;
-						r = write(fd2, buffer, sizeof(buffer));
+                                                if (checkPacket(buffer) == DATA_P_TYPE)
+						       r = write(fd2, buffer, sizeof(buffer));
 
 						//r = write(fd2, data->buf, data->payload);
 						if (r < 1)
