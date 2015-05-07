@@ -229,13 +229,31 @@ int main(int argc, char *argv[])
                         //create a new packet to store in the queue
                         if(FD_ISSET(fd1, &rd))
                         {
-                                data_packet* data;
+                                
+                               /* data_packet* data;
                                 data = malloc(sizeof(data));
                                 data->type = DATA_P_TYPE;
                                 memset(&data->buf, 0, sizeof(BUF_SIZE));
                                 r = read(fd1, data->buf, BUF_SIZE);
                                 data->payload = r;
                                 printf("data = %s\n", data -> buf);
+                               */
+
+                            
+                                char temp[BUF_SIZE + 8];
+                                memset(temp, 0, BUF_SIZE + 8);
+                                r = read(fd1, temp, BUF_SIZE + 8);
+                              //  printf("DATA now = %s\n", temp);
+
+                                struct data_packet data2;
+                                struct data_packet* data;
+                                
+                                if (r >= 1 && strlen(temp) == 0) {
+                                  data2 = unpackPacket(temp);     
+                                  data = &data2;
+                                }
+                              
+
                                 if (r < 1)
                                 {
                                         printf("here");
@@ -243,9 +261,9 @@ int main(int argc, char *argv[])
                                 }
                                 else
                                 {
-                                        data_packet* temp;
-                                        temp = to_s_packets;
-                                        if(temp==NULL)
+                                        data_packet* temp2;
+                                        temp2 = to_s_packets;
+                                        if(temp2==NULL)
                                         {
                                                 to_s_packets = data;
                                                 data->next = NULL;
@@ -309,9 +327,7 @@ int main(int argc, char *argv[])
                                         packPacket(data, buffer);
                                         to_c_packets = NULL;
                                         r = write(fd1, buffer, sizeof(buffer));
-
- 
-                                        //r = write(fd1, data->buf, data->payload);
+                                                                                    
                                         if (r < 1)
                                                 SHUT_FD1;
                                         //free(data);
