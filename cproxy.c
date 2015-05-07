@@ -49,6 +49,8 @@ static int forward_port;
 void packPacket(struct data_packet* myPacket, char* buffer);
 struct data_packet unpackPacket(char* buffer);
 int checkPacket(char* buffer);
+void addPacket(struct data_packet* data, struct data_cache* cache_data);
+void print_cache(struct data_cache* cache_data);
 
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
@@ -56,42 +58,59 @@ int checkPacket(char* buffer);
 //function to establish a socket on localhost and start listening to it
 static int listen_socket(int listen_port)
 {
-        char local_ip[] = "127.0.0.1";
 
-        struct sockaddr_in a;
-        int s;
-        int yes;
+	struct sockaddr_in a;
+	int s;
+	int yes;
 
-        s = socket(AF_INET, SOCK_STREAM, 0);
-        if (s == -1) {
-                perror("socket");
-                return -1;
-        }
-        yes = 1;
-        if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
-                                &yes, sizeof(yes)) == -1) {
-                perror("setsockopt");
-                close(s);
-                return -1;
-        }
-        memset(&a, 0, sizeof(a));
-        a.sin_port = htons(listen_port);
-        a.sin_family = AF_INET;
-        if (bind(s, (struct sockaddr *) &a, sizeof(a)) == -1) {
-                perror("bind");
-                close(s);
-                return -1;
-        }
-        printf("accepting connections on port %d\n", listen_port);
-        listen(s, 10);
-        return s;
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s == -1) {
+		perror("socket");
+		return -1;
+	}
+	yes = 1;
+	if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
+				&yes, sizeof(yes)) == -1) {
+		perror("setsockopt");
+		close(s);
+		return -1;
+	}
+	memset(&a, 0, sizeof(a));
+	a.sin_port = htons(listen_port);
+	a.sin_family = AF_INET;
+	if (bind(s, (struct sockaddr *) &a, sizeof(a)) == -1) {
+		perror("bind");
+		close(s);
+		return -1;
+	}
+	//printf("accepting connections on port %d\n", listen_port);
+	listen(s, 10);
+	return s;
 }
 
 //function to connect to the server
 static int connect_socket(int connect_port, char *address)
 {
-        struct sockaddr_in a;
-        int s;
+	struct sockaddr_in a;
+	int s;
+
+	//printf("connection to socket port = %d\n", connect_port);
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s == -1) {
+		perror("socket");
+		close(s);
+		return -1;
+	}
+
+	memset(&a, 0, sizeof(a));
+	a.sin_port = htons(connect_port);
+	a.sin_family = AF_INET;
+
+	if (!inet_aton(address, (struct in_addr *) &a.sin_addr.s_addr)) {
+		perror("bad IP address format");
+		close(s);
+		return -1;
+	}
 
         //printf("connection to socket port = %d\n", connect_port);
         s = socket(AF_INET, SOCK_STREAM, 0);
@@ -129,6 +148,7 @@ int main(int argc, char *argv[])
         int forward_port = 6200;
         int listen_port = 5200;
         struct timeval timeout;
+        struct data_packet* cache_data = NULL;
         s_pending=0;
         c_pending=0;
         int wow = 0;
@@ -499,10 +519,9 @@ struct data_packet unpackPacket(char* buffer) {
         return tempPacket;
 }
 
+
 int checkPacket(char* buffer) {
         int  a, b;
         memcpy((char *) &a, buffer, 2);
         return ntohs(a);
 }
-
-

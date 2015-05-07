@@ -30,8 +30,16 @@ typedef struct heartbeat_packet
         int ack_num;
 }heartbeat_packet;
 
+//typedef struct data_cache
+//{
+  //  struct data_packet data;
+   // struct data_cache* next;
+//}data_cache;
+
 data_packet* to_s_packets = NULL;
 data_packet* to_c_packets = NULL;
+data_packet* caching = NULL;
+//data_cache* cache_data = NULL;
 int s_pending;
 int c_pending;
 int Useq_num=0;
@@ -39,6 +47,7 @@ int Uack_num=0;
 int elapsed=1000000;
 int timed=3000000;
 int conn_status = 0;
+int sequence_number = 0;
 
 int dead_connection(int socket)
 {
