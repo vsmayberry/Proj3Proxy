@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
-                
+
                 int t = (int) timeout.tv_usec;
 
                 elapsed = elapsed - (1000000 - t);
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
                    elapsed = 1000000;
 
                 }
- 
+
                 //printf("Select returned %d\n\n", r);
 
                 //if it caught a signal ie select returned without a fd or timeout
@@ -247,15 +247,15 @@ int main(int argc, char *argv[])
                         //if the fd1 socket is ready
                         //create a new packet to store in the queue
                         if(FD_ISSET(fd1, &rd))
-                        {                            
+                        {
                                 char temp[BUF_SIZE + 8];
                                 memset(temp, 0, BUF_SIZE + 8);
                                 r = read(fd1, temp, BUF_SIZE + 8);
-                              
+
 
                                 struct data_packet data2;
                                 struct data_packet* data;
-                                
+
                                 if (r >= 1 && strlen(temp) == 0) {
                                  if (checkPacket(temp) == HEART_P_TYPE)
                                      printf("RECEIVED HEART BEAT\n");
@@ -266,13 +266,13 @@ int main(int argc, char *argv[])
                                      data = &data2;
                                  }
                                 }
-                              
+
 
                                 if (r < 1)
                                 {
                                         printf("here");
                                         SHUT_FD1;
-                                
+
                                 }
                                 else
                                 {
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
                                         }
 
 
-  
+
                                 if(to_c_packets!=NULL)
                                 {
                                         data_packet* data = to_c_packets;
@@ -365,7 +365,7 @@ int main(int argc, char *argv[])
                                         packPacket(data, buffer);
                                         to_c_packets = NULL;
                                         if (checkPacket(buffer) == DATA_P_TYPE)
-                                            r = write(fd1, buffer, sizeof(buffer);
+                                            r = write(fd1, buffer, sizeof(buffer));
                                         if (r < 1)
                                                 SHUT_FD1;
                                         //free(data);
