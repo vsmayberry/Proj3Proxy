@@ -258,13 +258,19 @@ int main(int argc, char *argv[])
                         {
                                 char temp[BUF_SIZE + 8];
                                 r = read(fd2, temp, BUF_SIZE + 8);
-                                
-                                struct data_packet data2 = unpackPacket(temp);
-                                data_packet* data = &data2;
+                               
+                                struct data_packet data2;
+                                struct data_packet* data;
+                                if (r >= 1) {
+                                 data2 = unpackPacket(temp);
+                                 data = &data2;
+                                }
 
                                 
                                 if (r < 1)
                                 {
+                                        printf("HERE1D\n");
+
                                         SHUT_FD2;
                                 }
                                 else
@@ -365,6 +371,8 @@ struct data_packet unpackPacket(char* buffer) {
    memcpy((char *) &g, buffer+6, 2);
    h = ntohs(g);
    tempPacket.ack_num = h;
-   memcpy((char *) &tempPacket.buf, buffer + 8, tempPacket.payload);
+   memset(tempPacket.buf, 0, BUF_SIZE);
+   memcpy((char *) &(tempPacket.buf), buffer + 8, tempPacket.payload);
+   
    return tempPacket;
 }
