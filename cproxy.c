@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
                         {
                                 char temp[BUF_SIZE + 8];
                                 r = read(fd2, temp, BUF_SIZE + 8);
-                               
+
                                 struct data_packet data2;
                                 struct data_packet* data;
                                 if (r >= 1) {
@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
                                  data = &data2;
                                 }
 
-                                
+
                                 if (r < 1)
                                 {
                                         printf("HERE1D\n");
@@ -373,6 +373,6 @@ struct data_packet unpackPacket(char* buffer) {
    tempPacket.ack_num = h;
    memset(tempPacket.buf, 0, BUF_SIZE);
    memcpy((char *) &(tempPacket.buf), buffer + 8, tempPacket.payload);
-   
+
    return tempPacket;
 }
