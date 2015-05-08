@@ -318,6 +318,8 @@ int main(int argc, char *argv[])
                                 memset(&data->buf, 0, sizeof(BUF_SIZE));
                                 r = read(fd2, data->buf, BUF_SIZE);
                                 data->payload = r;
+                                data -> seq_num = sequence_number++;
+                                data -> ack_num = 0;
                                 if (r < 1)
                                 {
                                         printf("here2");
@@ -333,6 +335,36 @@ int main(int argc, char *argv[])
                                                 data->next=NULL;
                                         }
 
+                                       /* data_packet* temp5;
+                                        temp5 = caching;
+                                        if (temp5 == NULL) {
+                                             struct data_packet temp4 = *data;
+                                             caching = malloc(sizeof(temp4));
+                                             caching -> type = temp4.type;
+                                             caching -> payload = temp4.payload;
+                                             caching -> seq_num = temp4.seq_num;
+                                             caching -> ack_num = temp4.ack_num;
+                                             strcpy(caching -> buf, temp4.buf);
+                                             caching -> next = NULL;
+                                             printf("First = %d\n", caching -> seq_num);
+                                       }
+
+                                       else
+                                          {
+                                                while(temp5->next!=NULL)     {
+                                                        temp5 = temp5->next;
+                                                }
+                                                struct data_packet temp6 = *data;
+                                                temp5->next = malloc(sizeof(temp6));
+                                                temp5 -> next -> type = temp6.type;
+                                                temp5 -> next -> payload = temp6.payload;
+                                                temp5 -> next -> seq_num = temp6.seq_num;
+                                                temp5 -> next -> ack_num = temp6.ack_num;
+                                                strcpy(temp5 -> next -> buf, temp6.buf);
+                                                temp5 -> next -> next = NULL;
+                                                printf("Current = %d\n", temp5 -> next -> seq_num);
+
+                                         }*/
 
 
                                         c_pending+=1;
