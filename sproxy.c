@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
-
+                printf("ack %d, seq %d\n", Uack_num, sequence_number);
                 int t = (int) timeout.tv_usec;
 
                 elapsed = elapsed - (1000000 - t);
@@ -270,12 +270,20 @@ int main(int argc, char *argv[])
                                         if (checkPacket(temp) == HEART_P_TYPE)
                                         {
                                                 timed = 3000000;
-                                                printf("RECEIVED HEART BEAT\n");
+                                                //printf("RECEIVED HEART BEAT\n");
                                         }
                                         else if (checkPacket(temp) == CONNECT_P_TYPE)
                                                 printf("RECEIVED CONNECTION INITIATION\n");
                                         else {
                                                 data2 = unpackPacket(temp);
+                                                if(Uack_num==0)
+                                                {
+                                                    Uack_num = data2.seq_num;
+                                                }
+                                                else if(data2.seq_num==(Uack_num+1))
+                                                {
+                                                    Uack_num = data2.seq_num;
+                                                }
                                                 data = &data2;
                                         }
                                 }
@@ -297,8 +305,6 @@ int main(int argc, char *argv[])
                                                         to_s_packets = data;
                                                         data->next = NULL;
                                                 }
-
-
                                                 s_pending+=1;
                                         }
                                 }
@@ -313,7 +319,7 @@ int main(int argc, char *argv[])
                         if(FD_ISSET(fd2, &rd))
                         {
                                 data_packet* data;
-                                data = malloc(sizeof(data));
+                                data = malloc(sizeof(*data));
                                 data->type = DATA_P_TYPE;
                                 memset(&data->buf, 0, sizeof(BUF_SIZE));
                                 r = read(fd2, data->buf, BUF_SIZE);
@@ -335,7 +341,7 @@ int main(int argc, char *argv[])
                                                 data->next=NULL;
                                         }
 
-                                       /* data_packet* temp5;
+                                        data_packet* temp5;
                                         temp5 = caching;
                                         if (temp5 == NULL) {
                                              struct data_packet temp4 = *data;
@@ -346,7 +352,6 @@ int main(int argc, char *argv[])
                                              caching -> ack_num = temp4.ack_num;
                                              strcpy(caching -> buf, temp4.buf);
                                              caching -> next = NULL;
-                                             printf("First = %d\n", caching -> seq_num);
                                        }
 
                                        else
@@ -362,9 +367,8 @@ int main(int argc, char *argv[])
                                                 temp5 -> next -> ack_num = temp6.ack_num;
                                                 strcpy(temp5 -> next -> buf, temp6.buf);
                                                 temp5 -> next -> next = NULL;
-                                                printf("Current = %d\n", temp5 -> next -> seq_num);
 
-                                         }*/
+                                         }
 
 
                                         c_pending+=1;
@@ -405,8 +409,7 @@ int main(int argc, char *argv[])
                                         data_packet* data = to_c_packets;
                                         to_c_packets = to_c_packets->next;
                                         char buffer[BUF_SIZE + 8];
-                                        data -> seq_num = 0;
-                                        data -> ack_num = 0;
+                                        data->ack_num = Uack_num;
                                         packPacket(data, buffer);
                                         to_c_packets = NULL;
                                         if (checkPacket(buffer) == DATA_P_TYPE)
