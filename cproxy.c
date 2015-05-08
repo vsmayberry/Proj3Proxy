@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
         h = listen_socket(listen_port);
         if (h == -1)
                 exit(EXIT_FAILURE);
-
+        int ack_number = -1; 
         //main loop that contains the select call
         //essentially a timer loop that recvs stores and sends packets
         //also this loop monitors the connection to server
@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
                 nfds = max(nfds, fd2);
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
-                printf("ack %d, seq %d\n", Uack_num, sequence_number);
+                //printf("ack %d, seq %d\n", Uack_num, sequence_number);
                 int t = (int) timeout.tv_usec;
 
                 elapsed = elapsed - (1000000 - t);
@@ -340,9 +340,7 @@ int main(int argc, char *argv[])
                                 memset(&data->buf, 0, BUF_SIZE);
                                 r = read(fd1, data->buf, BUF_SIZE);
                                 data->payload = r;
-                                data -> seq_num = 0;
-                                data -> ack_num = 0;
-                               // data -> next = NULL;
+                                data -> seq_num = sequence_number++;
                                 if (r < 1)
                                 {
                                         SHUT_FD1;
@@ -428,14 +426,9 @@ int main(int argc, char *argv[])
                                                 data2 = unpackPacket(temp);
                                                 data = &data2;
 
-                                                if(Uack_num==0)
-                                                {
-                                                    Uack_num=data2.seq_num;
-                                                }
-                                                else if(data2.seq_num==(Uack_num+1))
-                                                {
-                                                    Uack_num++;
-                                                }
+                                                ack_number = data -> seq_num;
+                                                printf("ack_number = %d\n", ack_number);
+                                                printf("to_delete = %d\n", data -> ack_num);
                                                 data_packet* temp2;
                                                 temp2 = to_c_packets;
                                                 if(temp2 == NULL)
@@ -443,6 +436,39 @@ int main(int argc, char *argv[])
                                                         to_c_packets = data;
                                                         data->next=NULL;
                                                 }
+
+                                        
+                                                if (caching != NULL)  {
+                                                      if (data -> ack_num > 0) {
+                                                         while (caching -> seq_num <= data -> ack_num) {
+                                                                data_packet* delete = caching; 
+                                                                printf("Deleted %d\n", caching -> seq_num);
+                                                                if (caching -> next != NULL) {
+                                                                       caching = caching -> next;
+                                                                       free(delete);
+                                                                }
+                                                                else {
+                                                                       caching = NULL;
+                                                                       free(delete);
+                                                                       break;
+                                                                }
+                                                         }
+                                                      }
+                                                        //printf("Seq = %d\n", temp7 -> seq_num);
+                                                      
+
+                                                      
+                                                      //else {
+                                                            //while (temp7 -> next != NULL && temp7 -> next -> seq_num != Uack_num)
+                                                              //    temp7 = temp7 -> next;
+                                                            //if (temp7 -> next -> seq_num == Uack_num) {
+                                                               //   data_packet* temp8 = temp7;
+                                                              //    temp7 -> next = temp7 -> next -> next;
+                                                             //     free(temp8);
+                                                                  
+                                                           // }
+                                                      //}         
+                                                } 
                                                 c_pending+=1;
                                         }
                                 }
@@ -498,9 +524,10 @@ int main(int argc, char *argv[])
                                         to_s_packets = to_s_packets->next;
                                         char buffer[BUF_SIZE + 8];
                                         memset(buffer, 0, BUF_SIZE + 8);
-                                        data -> seq_num = sequence_number++;
-                                        data -> ack_num = Uack_num;
+                                        //data -> seq_num = sequence_number++;
+                                        data -> ack_num = ack_number;
                                         packPacket(data, buffer);
+                                        printf("SEQ = %d\n", data -> seq_num);
                                         to_s_packets = NULL;
                                         if (checkPacket(buffer) == DATA_P_TYPE)
                                                 r = write(fd2, buffer, sizeof(buffer));
