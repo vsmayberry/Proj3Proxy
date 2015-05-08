@@ -201,6 +201,7 @@ int main(int argc, char *argv[])
                 nfds = max(nfds, fd2);
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
+                printf("ack %d, seq %d\n", Uack_num, sequence_number);
                 int t = (int) timeout.tv_usec;
 
                 elapsed = elapsed - (1000000 - t);
@@ -211,7 +212,7 @@ int main(int argc, char *argv[])
                         //dead_connection(fd2);
                         if(fd2>=0)
                         {
-                                printf("DEAD CONNECTION\n");
+                                //printf("DEAD CONNECTION\n");
                                 shutdown(fd2, SHUT_RDWR);
                                 close(fd2);
                                 connected = 0;
@@ -339,7 +340,7 @@ int main(int argc, char *argv[])
                                 memset(&data->buf, 0, BUF_SIZE);
                                 r = read(fd1, data->buf, BUF_SIZE);
                                 data->payload = r;
-                                data -> seq_num = sequence_number++;
+                                data -> seq_num = 0;
                                 data -> ack_num = 0;
                                // data -> next = NULL;
                                 if (r < 1)
@@ -350,8 +351,8 @@ int main(int argc, char *argv[])
                                 {
                                         data_packet* temp;
                                         temp = to_s_packets;
-                                                printf("temp = %d\n", temp);
-                                                printf("s_pending = %d\n", s_pending);
+                                                //printf("temp = %d\n", temp);
+                                                //printf("s_pending = %d\n", s_pending);
                                         if(temp==NULL)
                                         {
                                                 to_s_packets = data;
@@ -360,19 +361,19 @@ int main(int argc, char *argv[])
 
 
                                         //printf("%d\n", (*data).seq_num);
-                                      
+
                                         data_packet* temp5;
                                         temp5 = caching;
                                         if (temp5 == NULL) {
                                              struct data_packet temp4 = *data;
-                                             caching = malloc(sizeof(temp4)); 
+                                             caching = malloc(sizeof(temp4));
                                              caching -> type = temp4.type;
                                              caching -> payload = temp4.payload;
                                              caching -> seq_num = temp4.seq_num;
                                              caching -> ack_num = temp4.ack_num;
-                                             strcpy(caching -> buf, temp4.buf); 
+                                             strcpy(caching -> buf, temp4.buf);
                                              caching -> next = NULL;
-                                             printf("First = %d\n", caching -> seq_num);
+                                             //printf("First = %d\n", caching -> seq_num);
                                        }
 
                                        else
@@ -388,8 +389,8 @@ int main(int argc, char *argv[])
                                                 temp5 -> next -> ack_num = temp6.ack_num;
                                                 strcpy(temp5 -> next -> buf, temp6.buf);
                                                 temp5 -> next -> next = NULL;
-                                                printf("Current = %d\n", temp5 -> next -> seq_num);         
-                                               
+                                                //printf("Current = %d\n", temp5 -> next -> seq_num);
+
                                          }
 
                                         s_pending+=1;
@@ -427,7 +428,14 @@ int main(int argc, char *argv[])
                                                 data2 = unpackPacket(temp);
                                                 data = &data2;
 
-
+                                                if(Uack_num==0)
+                                                {
+                                                    Uack_num=data2.seq_num;
+                                                }
+                                                else if(data2.seq_num==(Uack_num+1))
+                                                {
+                                                    Uack_num++;
+                                                }
                                                 data_packet* temp2;
                                                 temp2 = to_c_packets;
                                                 if(temp2 == NULL)
@@ -435,9 +443,6 @@ int main(int argc, char *argv[])
                                                         to_c_packets = data;
                                                         data->next=NULL;
                                                 }
-
-
-
                                                 c_pending+=1;
                                         }
                                 }
@@ -493,15 +498,13 @@ int main(int argc, char *argv[])
                                         to_s_packets = to_s_packets->next;
                                         char buffer[BUF_SIZE + 8];
                                         memset(buffer, 0, BUF_SIZE + 8);
-                                        //data -> seq_num = 0;
-                                        //data -> ack_num = 0;
+                                        data -> seq_num = sequence_number++;
+                                        data -> ack_num = Uack_num;
                                         packPacket(data, buffer);
-                                        send_heartbeat = 0;
                                         to_s_packets = NULL;
                                         if (checkPacket(buffer) == DATA_P_TYPE)
                                                 r = write(fd2, buffer, sizeof(buffer));
 
-                                        //r = write(fd2, data->buf, data->payload);
                                         if (r < 1)
                                                 SHUT_FD2;
                                         //free(data);
