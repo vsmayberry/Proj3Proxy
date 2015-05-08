@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
         h = listen_socket(listen_port);
         if (h == -1)
                 exit(EXIT_FAILURE);
-
+        int ack_number = 0;
         //main loop that contains the select call
         //essentially a timer loop that recvs stores and sends packets
         //also this loop monitors the connection to server
@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 
                 //call select which can monitor time and whic sockets are ready
                 r = select(nfds + 1, &rd, &wr, &er, &timeout);
-                printf("ack %d, seq %d\n", Uack_num, sequence_number);
+                //printf("ack %d, seq %d\n", Uack_num, sequence_number);
                 int t = (int) timeout.tv_usec;
 
                 elapsed = elapsed - (1000000 - t);
@@ -276,15 +276,31 @@ int main(int argc, char *argv[])
                                                 printf("RECEIVED CONNECTION INITIATION\n");
                                         else {
                                                 data2 = unpackPacket(temp);
-                                                if(Uack_num==0)
-                                                {
-                                                    Uack_num = data2.seq_num;
-                                                }
-                                                else if(data2.seq_num==(Uack_num+1))
-                                                {
-                                                    Uack_num = data2.seq_num;
-                                                }
                                                 data = &data2;
+                                                ack_number = data -> seq_num;
+                                                printf("Ack number = %d\n", data -> ack_num);
+                                                printf("Seq number = %d\n", data -> seq_num);
+
+
+
+                                                if (caching != NULL)  {
+                                                      if (data -> ack_num > 0) {
+                                                         while (caching -> seq_num <= data -> ack_num) {
+                                                                data_packet* delete = caching;
+                                                                printf("Deleted %d\n", caching -> seq_num);
+                                                                if (caching -> next != NULL) {
+                                                                       caching = caching -> next;
+                                                                       free(delete);
+                                                                }
+                                                                else {
+                                                                       caching = NULL;
+                                                                       free(delete);
+                                                                       break;
+                                                                }
+                                                         }
+                                                      }
+                                               }
+ 
                                         }
                                 }
 
@@ -325,7 +341,7 @@ int main(int argc, char *argv[])
                                 r = read(fd2, data->buf, BUF_SIZE);
                                 data->payload = r;
                                 data -> seq_num = sequence_number++;
-                                data -> ack_num = 0;
+                                data -> ack_num = ack_number;
                                 if (r < 1)
                                 {
                                         printf("here2");
@@ -409,7 +425,7 @@ int main(int argc, char *argv[])
                                         data_packet* data = to_c_packets;
                                         to_c_packets = to_c_packets->next;
                                         char buffer[BUF_SIZE + 8];
-                                        data->ack_num = Uack_num;
+                                        data->ack_num = ack_number;
                                         packPacket(data, buffer);
                                         to_c_packets = NULL;
                                         if (checkPacket(buffer) == DATA_P_TYPE)
